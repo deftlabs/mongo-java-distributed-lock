@@ -87,13 +87,21 @@ public final class DistributedLockIntTests {
         // Cleanup the test database
         _mongo = new Mongo(new MongoURI("mongodb://127.0.0.1:27017"));
         getCollection().remove(new BasicDBObject());
+        getHistoryCollection().remove(new BasicDBObject());
     }
 
     @After
-    public void cleanup() { /* getCollection().remove(new BasicDBObject()); */ }
+    public void cleanup() {
+        getCollection().remove(new BasicDBObject());
+    }
 
     private DBCollection getCollection()
-    { return _mongo.getDB("mongo-java-distributed-lock").getCollection("locks"); }
+    { return _mongo.getDB("mongo-distributed-lock").getCollection("locks"); }
+
+    private DBCollection getHistoryCollection()
+    { return _mongo.getDB("mongo-distributed-lock").getCollection("lockHistory"); }
+
+
 
     private Mongo _mongo;
 
