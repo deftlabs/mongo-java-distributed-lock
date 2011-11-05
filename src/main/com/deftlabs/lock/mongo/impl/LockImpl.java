@@ -26,11 +26,13 @@ import com.mongodb.Mongo;
 import org.bson.types.ObjectId;
 
 // Java
+import java.util.Queue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.locks.LockSupport;
 
 /**
  * The distributed lock object.
@@ -53,29 +55,65 @@ public class LockImpl implements DistributedLock {
 
     @Override
     public void lock() {
+        if (tryDistributedLock()) return;
+        park();
+    }
 
-        if (!isLocked()) {
-            final ObjectId lockId = LockDao.lock(_mongo, _name, _svcOptions, _lockOptions);
+    /**
+     * Park the current thread. This method will check to see (when allowed) to see
+     * if it can get the distributed lock.
+     */
+    private void park() {
 
-            if (lockId != null) {
-                _lockId = lockId;
-                _locked.set(true);
-                return;
+        boolean wasInterrupted = false;
+        Thread current = Thread.currentThread();
+        _waitingThreads.add(current);
+
+        // Block while not first in queue or cannot acquire lock
+        while (_running.get()) {
+
+            if (Thread.interrupted()) { wasInterrupted = true; break; }
+
+            if (_waitingThreads.peek() == current && !isLocked()) {
+                // Check to see if this thread can get the distributed lock
+                if (tryDistributedLock()) break;
             }
+
+            LockSupport.park(this);
         }
 
-        // The lock is not available - block using LockSupport
+        _waitingThreads.remove();
+        if (wasInterrupted) current.interrupt();
     }
 
+    /**
+     * Try and lock the distributed lock.
+     */
+    private boolean tryDistributedLock() {
+        if (isLocked()) return false;
+
+        final ObjectId lockId = LockDao.lock(_mongo, _name, _svcOptions, _lockOptions);
+
+        if (lockId == null) return false;
+
+        _locked.set(true);
+        _lockId = lockId;
+        return true;
+    }
+
+    /**
+     * This is not supported.
+     */
     @Override
-    public void lockInterruptibly() {
+    public void lockInterruptibly()
+    { throw new UnsupportedOperationException("Not yet supported"); }
 
-    }
-
+    /**
+     * For now, this is not supported.
+     */
     @Override
-    public Condition newCondition() {
-        return null;
-    }
+    public Condition newCondition()
+    { throw new UnsupportedOperationException("Not yet supported"); }
 
     /**
      * Does not block. Returns right away if not able to lock.
@@ -86,13 +124,11 @@ public class LockImpl implements DistributedLock {
 
         final ObjectId lockId = LockDao.lock(_mongo, _name, _svcOptions, _lockOptions);
 
-        if (lockId != null) {
-            _lockId = lockId;
-            _locked.set(true);
-            return true;
-        }
+        if (lockId == null) return false;
 
-        return false;
+        _locked.set(true);
+        _lockId = lockId;
+        return true;
     }
 
     @Override
@@ -109,24 +145,31 @@ public class LockImpl implements DistributedLock {
 
     @Override
     public void unlock() {
+        LockDao.unlock(_mongo, _name, _svcOptions, _lockOptions, _lockId);
         _locked.set(false);
         _lockId = null;
-        LockDao.unlock(_mongo, _name, _svcOptions, _lockOptions, _lockId);
+        LockSupport.unpark(_waitingThreads.peek());
     }
 
     /**
-     * Called to inialize the lock.
+     * Called to initialize the lock.
      */
     void init() {
+        _running.set(true);
         // Start the heartbeat thread
         // Start the lock monitor thread
+
+        // The monitor thread needs to see if the lock has been released by another process
+        // and let the local thread(s) try to get. If they are not able to acquire, then they
+        // will go back into park mode.
     }
 
     /**
      * Called to destroy the lock.
      */
     void destroy() {
-
+        _running.set(false);
+        for (final Thread t : _waitingThreads) t.interrupt();
     }
 
     /**
@@ -150,6 +193,9 @@ public class LockImpl implements DistributedLock {
 
     private final AtomicBoolean _locked = new AtomicBoolean(false);
 
-    private final ReentrantLock _localLock = new ReentrantLock(true);
+    private final AtomicBoolean _running = new AtomicBoolean(false);
+
+    private final Queue<Thread> _waitingThreads = new ConcurrentLinkedQueue<Thread>();
+
 }
 
