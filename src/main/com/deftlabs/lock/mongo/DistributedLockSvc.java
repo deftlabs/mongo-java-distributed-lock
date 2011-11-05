@@ -38,5 +38,7 @@ public interface DistributedLockSvc {
      */
     public void destroy(final DistributedLock pLock);
 
+    // TODO Add init/destroy methods to this class to ensure locks are cleaned up.
+
 }
 
