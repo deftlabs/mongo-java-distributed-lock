@@ -35,19 +35,52 @@ import java.util.logging.Logger;
 import java.util.logging.LogManager;
 
 /**
- * Test the distributed lock.
+ * Test the distributed lock. You must be running mongo on localhost:27017 for this
+ * test to work.
  */
 public final class DistributedLockIntTests {
 
     @Test
-    public void testSimpleWarning() throws Exception {
-
+    public void testSimpleCreate() throws Exception {
+        assertNotNull(createSimpleLockSvc());
     }
 
+    @Test
+    public void testSimpleLockCreateDestroy() throws Exception {
+        final DistributedLockSvc lockSvc = createSimpleLockSvc();
+        DistributedLock lock = null;
+        try { lock = lockSvc.create("testLock");
+        } finally { if (lock != null) lockSvc.destroy(lock); }
+    }
+
+    @Test
+    public void testSimpleLockCreateLockUnlockDestroy() throws Exception {
+        final DistributedLockSvc lockSvc = createSimpleLockSvc();
+        DistributedLock lock = null;
+        try {
+            lock = lockSvc.create("testLock");
+            try { lock.lock();
+            } finally { lock.unlock(); }
+        } finally { if (lock != null) lockSvc.destroy(lock); }
+
+        // TODO: Verify the data in the history table.
+    }
+
+
+    private DistributedLockSvc createSimpleLockSvc() {
+        final DistributedLockSvcOptions options
+        = new DistributedLockSvcOptions("mongodb://127.0.0.1:27017");
+
+        final DistributedLockSvcFactory factory = new DistributedLockSvcFactory(options);
+        return factory.getLockSvc();
+    }
+
+    /*
     @BeforeClass
     public static void setupLogger() throws Exception {
 
     }
+    */
 
     @Before
     public void init() throws Exception {
@@ -57,7 +90,7 @@ public final class DistributedLockIntTests {
     }
 
     @After
-    public void cleanup() { getCollection().remove(new BasicDBObject()); }
+    public void cleanup() { /* getCollection().remove(new BasicDBObject()); */ }
 
     private DBCollection getCollection()
     { return _mongo.getDB("mongo-java-distributed-lock").getCollection("locks"); }
