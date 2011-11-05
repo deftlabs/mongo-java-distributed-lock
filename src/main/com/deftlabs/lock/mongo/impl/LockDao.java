@@ -37,7 +37,7 @@ import java.util.Date;
  * The distributed lock dao. These are a set of static methods
  * that are responsible for data access.
  */
-class LockDao {
+final class LockDao extends BaseDao {
 
     /**
      * Try and get the lock. If unable to do so, this returns false.
@@ -88,7 +88,9 @@ class LockDao {
                                                 final long pStartTime)
     {
         final long adjustTime = System.currentTimeMillis() - pStartTime;
-        final Date now = new Date((pServerTime + adjustTime));
+
+        final long serverTime = pServerTime + adjustTime;
+        final Date now = new Date(serverTime);
 
         final ObjectId lockId = ObjectId.get();
 
@@ -114,7 +116,13 @@ class LockDao {
         final BasicDBObject lockDoc
         = (BasicDBObject)getDbCollection(pMongo, pSvcOptions).findAndModify(query, new BasicDBObject(LockDef.ID.field, 1), null, false, new BasicDBObject(SET, toSet), false, false);
 
-        if (lockDoc != null && lockDoc.containsField(LockDef.ID.field)) return lockId;
+        if (lockDoc != null && lockDoc.containsField(LockDef.ID.field)) {
+
+            if (pSvcOptions.getEnableHistory())
+            { LockHistoryDao.insert( pMongo, pLockName, pSvcOptions, pLockOptions, serverTime, LockState.LOCKED, lockId, false); }
+
+            return lockId;
+        }
 
         // Someone else beat us to the punch.
         return null;
@@ -132,8 +140,12 @@ class LockDao {
                                             final long pStartTime)
     {
         final long adjustTime = System.currentTimeMillis() - pStartTime;
-        final Date now = new Date((pServerTime + adjustTime));
+
+        final long serverTime = pServerTime + adjustTime;
+        final Date now = new Date(serverTime);
         final ObjectId lockId = ObjectId.get();
+
+        final Thread currentThread = Thread.currentThread();
 
         final BasicDBObject lockDoc = new BasicDBObject(LockDef.ID.field, pLockName);
         lockDoc.put(LockDef.LIBRARY_VERSION.field, pSvcOptions.getLibVersion());
@@ -145,9 +157,9 @@ class LockDao {
         lockDoc.put(LockDef.OWNER_APP_NAME.field, pSvcOptions.getAppName());
         lockDoc.put(LockDef.OWNER_ADDRESS.field, pSvcOptions.getHostAddress());
         lockDoc.put(LockDef.OWNER_HOSTNAME.field, pSvcOptions.getHostname());
-        lockDoc.put(LockDef.OWNER_THREAD_ID.field, Thread.currentThread().getId());
-        lockDoc.put(LockDef.OWNER_THREAD_NAME.field, Thread.currentThread().getName());
-        lockDoc.put(LockDef.OWNER_THREAD_GROUP_NAME.field, Thread.currentThread().getThreadGroup().getName());
+        lockDoc.put(LockDef.OWNER_THREAD_ID.field, currentThread.getId());
+        lockDoc.put(LockDef.OWNER_THREAD_NAME.field, currentThread.getName());
+        lockDoc.put(LockDef.OWNER_THREAD_GROUP_NAME.field, currentThread.getThreadGroup().getName());
         lockDoc.put(LockDef.LOCK_ATTEMPT_COUNT.field, 0);
         lockDoc.put(LockDef.INACTIVE_LOCK_TIMEOUT.field, pLockOptions.getInactiveLockTimeout());
 
@@ -155,16 +167,13 @@ class LockDao {
         final WriteResult result = getDbCollection(pMongo, pSvcOptions).insert(lockDoc, WriteConcern.NORMAL);
         final CommandResult cmdResult = result.getLastError();
 
-        return (cmdResult.getErrorMessage() == null) ? lockId : null;
+        if (cmdResult.getErrorMessage() != null) return null;
+
+       if (pSvcOptions.getEnableHistory())
+       { LockHistoryDao.insert( pMongo, pLockName, pSvcOptions, pLockOptions, serverTime, LockState.LOCKED, lockId, false); }
+
+        return lockId;
     }
-
-    static void requestStart(   final Mongo pMongo,
-                                final DistributedLockSvcOptions pSvcOptions)
-    { getDb(pMongo, pSvcOptions).requestStart(); }
-
-    static void requestDone(final Mongo pMongo,
-                            final DistributedLockSvcOptions pSvcOptions)
-    { getDb(pMongo, pSvcOptions).requestDone(); }
 
     /**
      * Find by lock name/id.
@@ -217,9 +226,7 @@ class LockDao {
         final BasicDBObject lockDoc
         = (BasicDBObject)getDbCollection(pMongo, pSvcOptions).findAndModify(query, null, null, false, new BasicDBObject(SET, toSet), false, false);
 
-        // TODO: Store the historical dock in the history colleciton.
-
-        //if (lockDoc != null && lockDoc.containsField(LockDef.ID.field)) return lockId;
+        LockHistoryDao.insert(pMongo, pLockName, pSvcOptions, pLockOptions, 0, LockState.UNLOCKED, pLockId, false);
     }
 
     /**
@@ -232,6 +239,14 @@ class LockDao {
 
 
     }
+
+
+    /**
+     * Returns the collection.
+     */
+    private static DBCollection getDbCollection(final Mongo pMongo,
+                                                final DistributedLockSvcOptions pSvcOptions)
+    { return getDb(pMongo, pSvcOptions).getCollection(pSvcOptions.getCollectionName()); }
 
     /**
      * Ensure the proper indexes are on the collection. This must be called when
@@ -259,63 +274,5 @@ class LockDao {
 
         getDbCollection(pMongo, pSvcOptions).ensureIndex(fullIdx, "fullV1Idx", false);
     }
-
-    /**
-     * Returns the db.
-     */
-    private static DB getDb(final Mongo pMongo,
-                            final DistributedLockSvcOptions pSvcOptions)
-    { return pMongo.getDB(pSvcOptions.getDbName()); }
-
-    /**
-     * Returns the collection.
-     */
-    private static DBCollection getDbCollection(final Mongo pMongo,
-                                                final DistributedLockSvcOptions pSvcOptions)
-    { return getDb(pMongo, pSvcOptions).getCollection(pSvcOptions.getCollectionName()); }
-
-    /**
-     * Returns the current server time. This makes a few requests to the server to try and adjust for
-     * network latency.
-     */
-    static long getServerTime(final Mongo pMongo, final DistributedLockSvcOptions pSvcOptions) {
-
-        final long [] localTimes = new long[SERVER_TIME_TRIES];
-        final int [] latency = new int[SERVER_TIME_TRIES];
-
-        long startTime;
-        BasicDBObject serverStatus;
-
-        for (int idx=0; idx < SERVER_TIME_TRIES; idx++) {
-            startTime = System.currentTimeMillis();
-            serverStatus = getDb(pMongo, pSvcOptions).command(_serverStatusCmd);
-            latency[idx] = (int)(System.currentTimeMillis() - startTime);
-            localTimes[idx] = ((Date)serverStatus.get(LOCAL_TIME_FIELD)).getTime();
-        }
-
-        final long serverTime = localTimes[(SERVER_TIME_TRIES -1)];
-
-        // Adjust based on latency.
-        return (serverTime + getHalfRoundedAvg(latency));
-    }
-
-    /**
-     * We assume that latency is 50% each way.
-     */
-    private static int getHalfRoundedAvg(final int [] pV) {
-        int total = 0;
-        for (int idx=0; idx < pV.length; idx++) total += pV[idx];
-        return Math.round((((float)total / (float)pV.length) / (float)2));
-    }
-
-    private static final String INC = "$inc";
-    private static final String SET = "$set";
-
-    private static final String LOCAL_TIME_FIELD = "localTime";
-    private static final int SERVER_TIME_TRIES = 3;
-
-    private static final int DUPLICATE_KEY_ERROR_CODE = 11000;
-
-    private static final BasicDBObject _serverStatusCmd = new BasicDBObject("serverStatus", 1);
 }
 
