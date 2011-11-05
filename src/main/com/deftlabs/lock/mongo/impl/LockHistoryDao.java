@@ -39,8 +39,6 @@ import java.util.Date;
  */
 final class LockHistoryDao extends BaseDao {
 
-
-
     /**
      * Insert an entry.
      */
@@ -53,8 +51,6 @@ final class LockHistoryDao extends BaseDao {
                         final Object pLockId,
                         final boolean pTimedOut)
     {
-
-
         final Thread currentThread = Thread.currentThread();
 
         long serverTime = pServerTime;
@@ -65,9 +61,7 @@ final class LockHistoryDao extends BaseDao {
 
         final BasicDBObject lockDoc = new BasicDBObject(LockHistoryDef.LOCK_NAME.field, pLockName);
         lockDoc.put(LockHistoryDef.LIBRARY_VERSION.field, pSvcOptions.getLibVersion());
-        lockDoc.put(LockHistoryDef.UPDATED.field, now);
-        lockDoc.put(LockHistoryDef.LAST_HEARTBEAT.field, now);
-        lockDoc.put(LockHistoryDef.LOCK_ACQUIRED_TIME.field, now);
+        lockDoc.put(LockHistoryDef.CREATED.field, now);
         lockDoc.put(LockHistoryDef.LOCK_ID.field, pLockId);
         lockDoc.put(LockHistoryDef.STATE.field, pLockState.code());
         lockDoc.put(LockHistoryDef.OWNER_APP_NAME.field, pSvcOptions.getAppName());
@@ -77,51 +71,11 @@ final class LockHistoryDao extends BaseDao {
         lockDoc.put(LockHistoryDef.OWNER_THREAD_NAME.field, currentThread.getName());
         lockDoc.put(LockHistoryDef.OWNER_THREAD_GROUP_NAME.field, currentThread.getThreadGroup().getName());
 
-        // TODO: Support tracking this
-        //lockDoc.put(LockDef.LOCK_ATTEMPT_COUNT.field, 0);
-
         lockDoc.put(LockHistoryDef.INACTIVE_LOCK_TIMEOUT.field, pLockOptions.getInactiveLockTimeout());
 
         lockDoc.put(LockHistoryDef.TIMED_OUT.field, pTimedOut);
 
         getDbCollection(pMongo, pSvcOptions).insert(lockDoc);
-    }
-
-    /**
-     * This will try and create the object. If successful, it will return the lock id.
-     * Otherwise, it will return null (i.e., no lock).
-     */
-    static void insert(   final Mongo pMongo,
-                                            final String pLockName,
-                                            final DistributedLockSvcOptions pSvcOptions,
-                                            final DistributedLockOptions pLockOptions,
-                                            final long pServerTime,
-                                            final long pStartTime)
-    {
-        final long adjustTime = System.currentTimeMillis() - pStartTime;
-        final Date now = new Date((pServerTime + adjustTime));
-        final ObjectId lockId = ObjectId.get();
-
-        final BasicDBObject lockDoc = new BasicDBObject(LockDef.ID.field, pLockName);
-        lockDoc.put(LockDef.LIBRARY_VERSION.field, pSvcOptions.getLibVersion());
-        lockDoc.put(LockDef.UPDATED.field, now);
-        lockDoc.put(LockDef.LAST_HEARTBEAT.field, now);
-        lockDoc.put(LockDef.LOCK_ACQUIRED_TIME.field, now);
-        lockDoc.put(LockDef.LOCK_ID.field, lockId);
-        lockDoc.put(LockDef.STATE.field, LockState.LOCKED.code());
-        lockDoc.put(LockDef.OWNER_APP_NAME.field, pSvcOptions.getAppName());
-        lockDoc.put(LockDef.OWNER_ADDRESS.field, pSvcOptions.getHostAddress());
-        lockDoc.put(LockDef.OWNER_HOSTNAME.field, pSvcOptions.getHostname());
-        lockDoc.put(LockDef.OWNER_THREAD_ID.field, Thread.currentThread().getId());
-        lockDoc.put(LockDef.OWNER_THREAD_NAME.field, Thread.currentThread().getName());
-        lockDoc.put(LockDef.OWNER_THREAD_GROUP_NAME.field, Thread.currentThread().getThreadGroup().getName());
-        lockDoc.put(LockDef.LOCK_ATTEMPT_COUNT.field, 0);
-        lockDoc.put(LockDef.INACTIVE_LOCK_TIMEOUT.field, pLockOptions.getInactiveLockTimeout());
-
-        // Insert, if successful then get out of here.
-        final WriteResult result = getDbCollection(pMongo, pSvcOptions).insert(lockDoc, WriteConcern.NORMAL);
-        final CommandResult cmdResult = result.getLastError();
-
     }
 
     /**

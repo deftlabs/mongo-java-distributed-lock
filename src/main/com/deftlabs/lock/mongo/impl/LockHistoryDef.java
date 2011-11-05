@@ -25,9 +25,6 @@ enum LockHistoryDef {
 
     ID("_id"), // This is an object id in history
     LIBRARY_VERSION("libraryVersion"),
-    UPDATED("lastUpdated"),
-    LAST_HEARTBEAT("lastHeartbeat"),
-    LOCK_ACQUIRED_TIME("lockAcquired"),
     STATE("lockState"),
     LOCK_ID("lockId"),
     OWNER_APP_NAME("appName"),
@@ -37,10 +34,10 @@ enum LockHistoryDef {
     OWNER_THREAD_NAME("ownerThreadName"),
     OWNER_THREAD_GROUP_NAME("ownerThreadGroupName"),
     INACTIVE_LOCK_TIMEOUT("inactiveLockTimeout"),
-    LOCK_ATTEMPT_COUNT("lockAttemptCount"),
 
 
     // Fields on top of LockDef
+    CREATED("historyCreated"),
     LOCK_NAME("lockName"),
     TIMED_OUT("timedOut");
 
