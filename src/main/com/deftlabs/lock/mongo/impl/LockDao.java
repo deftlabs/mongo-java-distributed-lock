@@ -95,7 +95,7 @@ class LockDao {
         final BasicDBObject query = new BasicDBObject(LockDef.ID.field, pLockName);
         query.put(LockDef.STATE.field, LockState.UNLOCKED.code());
 
-        final BasicDBObject toSet = new BasicDBObject(LockDef.ID.field, pLockName);
+        final BasicDBObject toSet = new BasicDBObject();
         toSet.put(LockDef.LIBRARY_VERSION.field, pSvcOptions.getLibVersion());
         toSet.put(LockDef.UPDATED.field, now);
         toSet.put(LockDef.LAST_HEARTBEAT.field, now);
