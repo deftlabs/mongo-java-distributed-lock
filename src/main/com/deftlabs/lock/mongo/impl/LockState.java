@@ -34,7 +34,7 @@ enum LockState {
 
     public static LockState findByCode(final String pCode) {
         if (pCode == null) throw new IllegalArgumentException("Invalid lock state code: " + pCode);
-        for (final LockState s : values()) if (s.equals(pCode)) return s;
+        for (final LockState s : values()) if (s._code.equals(pCode)) return s;
         throw new IllegalArgumentException("Invalid lock state code: " + pCode);
     }
 }
