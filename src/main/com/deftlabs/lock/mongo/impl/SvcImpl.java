@@ -102,6 +102,7 @@ public final class SvcImpl implements DistributedLockSvc {
 
             // Init the db/collection.
             LockDao.setup(_mongo, _options);
+            LockHistoryDao.setup(_mongo, _options);
 
         } catch (final Throwable t) { throw new DistributedLockException(t);
         } finally { _lock.unlock(); }
