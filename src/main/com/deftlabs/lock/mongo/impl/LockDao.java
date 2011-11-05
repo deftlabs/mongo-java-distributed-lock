@@ -155,11 +155,7 @@ class LockDao {
         final WriteResult result = getDbCollection(pMongo, pSvcOptions).insert(lockDoc, WriteConcern.NORMAL);
         final CommandResult cmdResult = result.getLastError();
 
-        // The lock has been acquired.
-        if (cmdResult.getErrorMessage() == null) return lockId;
-
-        // Someone else beat us to the punch.
-        return null;
+        return (cmdResult.getErrorMessage() == null) ? lockId : null;
     }
 
     static void requestStart(   final Mongo pMongo,
