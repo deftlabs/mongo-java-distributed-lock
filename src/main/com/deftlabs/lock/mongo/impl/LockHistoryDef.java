@@ -25,24 +25,24 @@ enum LockHistoryDef {
 
     ID("_id"), // This is an object id in history
     LIBRARY_VERSION("libraryVersion"),
-    CREATED("created"),
+    UPDATED("lastUpdated"),
     LAST_HEARTBEAT("lastHeartbeat"),
-    LOCK_ACQUIRED_TIME("lockAcquiredTime"),
+    LOCK_ACQUIRED_TIME("lockAcquired"),
     STATE("lockState"),
-    DOC_VERSION("version"),
-    OWNER_APP_ID("appId"),
+    LOCK_ID("lockId"),
+    OWNER_APP_NAME("appName"),
     OWNER_ADDRESS("ownerAddress"),
     OWNER_HOSTNAME("ownerHostname"),
     OWNER_THREAD_ID("ownerThreadId"),
     OWNER_THREAD_NAME("ownerThreadName"),
     OWNER_THREAD_GROUP_NAME("ownerThreadGroupName"),
     INACTIVE_LOCK_TIMEOUT("inactiveLockTimeout"),
-    WAITING_REQUEST_COUNT("waitingRequestCount"),
+    LOCK_ATTEMPT_COUNT("lockAttemptCount"),
+
 
     // Fields on top of LockDef
     LOCK_NAME("lockName"),
-    CREATED_HISTORY("created"),
-    TIMED_OUT("lockState");
+    TIMED_OUT("timedOut");
 
     private LockHistoryDef(final String pField) { field = pField; }
     final String field;
