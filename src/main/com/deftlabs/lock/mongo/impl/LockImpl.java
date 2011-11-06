@@ -66,11 +66,13 @@ public class LockImpl implements DistributedLock {
     private void park() {
 
         boolean wasInterrupted = false;
-        Thread current = Thread.currentThread();
+        final Thread current = Thread.currentThread();
         _waitingThreads.add(current);
 
         // Block while not first in queue or cannot acquire lock
         while (_running.get()) {
+
+            LockSupport.park(this);
 
             if (Thread.interrupted()) { wasInterrupted = true; break; }
 
@@ -78,12 +80,51 @@ public class LockImpl implements DistributedLock {
                 // Check to see if this thread can get the distributed lock
                 if (tryDistributedLock()) break;
             }
-
-            LockSupport.park(this);
         }
 
         _waitingThreads.remove();
         if (wasInterrupted) current.interrupt();
+    }
+
+    /**
+     * Park the current thread for a max amount of time. This method will check to see
+     * (when allowed) to see if it can get the distributed lock.
+     */
+    private boolean park(final long pNanos) {
+
+        boolean wasInterrupted = false;
+        final Thread current = Thread.currentThread();
+        _waitingThreads.add(current);
+
+        boolean locked = false;
+
+        long parkTime = pNanos;
+
+        long startTime = System.nanoTime();
+
+        // Todo... check and see if the pNanos has expired.
+
+        // Block while not first in queue or cannot acquire lock
+        while (_running.get()) {
+
+            parkTime = (pNanos - (System.nanoTime() - startTime));
+
+            if (parkTime <= 0) break;
+
+            LockSupport.parkNanos(this, parkTime);
+
+            if (Thread.interrupted()) { wasInterrupted = true; break; }
+
+            if (_waitingThreads.peek() == current && !isLocked()) {
+                // Check to see if this thread can get the distributed lock
+                if (tryDistributedLock()) { locked = true; break; }
+            }
+        }
+
+        _waitingThreads.remove();
+        if (wasInterrupted) { current.interrupt(); return locked; }
+
+        return locked;
     }
 
     /**
@@ -133,14 +174,10 @@ public class LockImpl implements DistributedLock {
 
     @Override
     public boolean tryLock(final long pTime, final TimeUnit pTimeUnit) {
-        if (!isLocked()) {
-            boolean locked = tryLock();
-            if (locked) return true;
-        }
 
-        // Try and lock every X amount of time for pTime to get the lock.
+        if (tryDistributedLock()) return true;
 
-        return false;
+        return park(pTimeUnit.toNanos(pTime));
     }
 
     @Override
