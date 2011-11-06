@@ -91,6 +91,8 @@ final class LockDao extends BaseDao {
                 if (lockId != null) return lockId;
             }
 
+            if (lockDoc == null) lockDoc = findById(pMongo, pLockName, pSvcOptions);
+
             // Get the state.
             final LockState lockState = LockState.findByCode(lockDoc.getString(LockDef.STATE.field));
 
@@ -101,8 +103,10 @@ final class LockDao extends BaseDao {
                 if (lockId != null) return lockId;
             }
 
+            final ObjectId lockId = (ObjectId)lockDoc.get(LockDef.LOCK_ID.field);
+
             // Could not get the lock.
-            incrementLockAttemptCount(pMongo, pLockName, pSvcOptions);
+            incrementLockAttemptCount(pMongo, pLockName, lockId, pSvcOptions);
 
             return null;
         } finally { requestDone(pMongo, pSvcOptions); }
@@ -219,10 +223,15 @@ final class LockDao extends BaseDao {
      */
     static void incrementLockAttemptCount(  final Mongo pMongo,
                                             final String pLockName,
+                                            final ObjectId pLockId,
                                             final DistributedLockSvcOptions pSvcOptions)
     {
+
+        final BasicDBObject query = new BasicDBObject(LockDef.ID.field, pLockName);
+        query.put(LockDef.LOCK_ID.field, pLockId);
+
         getDbCollection(pMongo, pSvcOptions)
-        .update(new BasicDBObject(LockDef.ID.field, pLockName), new BasicDBObject(INC, new BasicDBObject(LockDef.LOCK_ATTEMPT_COUNT.field, 1)), false, false);
+        .update(query, new BasicDBObject(INC, new BasicDBObject(LockDef.LOCK_ATTEMPT_COUNT.field, 1)), false, false);
     }
 
     /**
@@ -257,7 +266,8 @@ final class LockDao extends BaseDao {
         final BasicDBObject lockDoc
         = (BasicDBObject)getDbCollection(pMongo, pSvcOptions).findAndModify(query, null, null, false, new BasicDBObject(SET, toSet), false, false);
 
-        LockHistoryDao.insert(pMongo, pLockName, pSvcOptions, pLockOptions, 0, LockState.UNLOCKED, pLockId, false);
+        if (pSvcOptions.getEnableHistory())
+        { LockHistoryDao.insert(pMongo, pLockName, pSvcOptions, pLockOptions, 0, LockState.UNLOCKED, pLockId, false); }
     }
 
     /**
@@ -340,6 +350,10 @@ final class LockDao extends BaseDao {
         final BasicDBObject idStateIdx = new BasicDBObject(LockDef.ID.field, 1);
         idStateIdx.put(LockDef.STATE.field, 1);
         getDbCollection(pMongo, pSvcOptions).ensureIndex(idStateIdx, "idStateV1Idx", false);
+
+        final BasicDBObject idLockIdIdx = new BasicDBObject(LockDef.ID.field, 1);
+        idStateIdx.put(LockDef.LOCK_ID.field, 1);
+        getDbCollection(pMongo, pSvcOptions).ensureIndex(idLockIdIdx, "idLockIdV1Idx", false);
 
         final BasicDBObject stateTimeoutIdx = new BasicDBObject(LockDef.STATE.field, 1);
         stateTimeoutIdx.put(LockDef.LOCK_TIMEOUT_TIME.field, 1);
