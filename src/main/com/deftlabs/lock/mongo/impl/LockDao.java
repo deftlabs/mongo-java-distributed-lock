@@ -248,7 +248,7 @@ final class LockDao extends BaseDao {
         toSet.put(LockDef.OWNER_THREAD_NAME.field, null);
         toSet.put(LockDef.OWNER_THREAD_GROUP_NAME.field, null);
         toSet.put(LockDef.LOCK_ATTEMPT_COUNT.field, 0);
-        toSet.put(LockDef.INACTIVE_LOCK_TIMEOUT.field, pLockOptions.getInactiveLockTimeout());
+        toSet.put(LockDef.INACTIVE_LOCK_TIMEOUT.field, null);
 
         final BasicDBObject query = new BasicDBObject(LockDef.ID.field, pLockName);
         query.put(LockDef.LOCK_ID.field, pLockId);
@@ -277,13 +277,45 @@ final class LockDao extends BaseDao {
 
         try {
             while (cur.hasNext()) {
-                // We are going to double check and timeout if necessary.
-                // Look at the last ping date and expire timeout... make sure we
-                // don't step on a short lived lock (with fast fail).
+
+                final BasicDBObject lockDoc = (BasicDBObject)cur.next();
+
+                final ObjectId lockId = (ObjectId)lockDoc.get(LockDef.LOCK_ID.field);
+                final String lockName = lockDoc.getString(LockDef.ID.field);
+
                 final long serverTime = getServerTime(pMongo, pSvcOptions);
 
-                // TODO: Add the findAndModify to timeout the lock.
+                final BasicDBObject toSet = new BasicDBObject();
+                toSet.put(LockDef.LIBRARY_VERSION.field, null);
+                toSet.put(LockDef.UPDATED.field, new Date(serverTime));
+                toSet.put(LockDef.LOCK_ACQUIRED_TIME.field, null);
+                toSet.put(LockDef.LOCK_TIMEOUT_TIME.field, null);
+                toSet.put(LockDef.LOCK_ID.field, null);
+                toSet.put(LockDef.STATE.field, LockState.UNLOCKED.code());
+                toSet.put(LockDef.OWNER_APP_NAME.field, null);
+                toSet.put(LockDef.OWNER_ADDRESS.field, null);
+                toSet.put(LockDef.OWNER_HOSTNAME.field, null);
+                toSet.put(LockDef.OWNER_THREAD_ID.field, null);
+                toSet.put(LockDef.OWNER_THREAD_NAME.field, null);
+                toSet.put(LockDef.OWNER_THREAD_GROUP_NAME.field, null);
+                toSet.put(LockDef.LOCK_ATTEMPT_COUNT.field, 0);
+                toSet.put(LockDef.INACTIVE_LOCK_TIMEOUT.field, null);
 
+                final BasicDBObject timeoutQuery = new BasicDBObject(LockDef.ID.field, lockName);
+                timeoutQuery.put(LockDef.LOCK_ID.field, lockId);
+                timeoutQuery.put(LockDef.STATE.field, LockState.LOCKED.code());
+                timeoutQuery.put(LockDef.LOCK_TIMEOUT_TIME.field, new BasicDBObject(LT, new Date(serverTime)));
+
+                final BasicDBObject previousLockDoc
+                = (BasicDBObject)getDbCollection(pMongo, pSvcOptions)
+                .findAndModify(timeoutQuery, new BasicDBObject(LockDef.INACTIVE_LOCK_TIMEOUT.field, 1), null, false, new BasicDBObject(SET, toSet), false, false);
+
+                if (previousLockDoc == null) continue;
+
+                if (!pSvcOptions.getEnableHistory()) continue;
+
+                // Insert the history state.
+                LockHistoryDao.insert(pMongo, lockName, pSvcOptions, previousLockDoc.getInt(LockDef.INACTIVE_LOCK_TIMEOUT.field), serverTime, LockState.LOCKED, lockId, true);
             }
         } finally { if (cur != null) cur.close(); }
     }
@@ -317,6 +349,14 @@ final class LockDao extends BaseDao {
         idStateLockIdIdx.put(LockDef.LOCK_ID.field, 1);
         idStateLockIdIdx.put(LockDef.STATE.field, 1);
         getDbCollection(pMongo, pSvcOptions).ensureIndex(idStateLockIdIdx, "idStateLockIdV1Idx", false);
+
+
+        final BasicDBObject idStateLockIdTimeoutIdx = new BasicDBObject(LockDef.ID.field, 1);
+        idStateLockIdTimeoutIdx.put(LockDef.LOCK_ID.field, 1);
+        idStateLockIdTimeoutIdx.put(LockDef.STATE.field, 1);
+        idStateLockIdTimeoutIdx.put(LockDef.LOCK_TIMEOUT_TIME.field, 1);
+        getDbCollection(pMongo, pSvcOptions).ensureIndex(idStateLockIdTimeoutIdx, "idStateLockIdTimeoutV1Idx", false);
+
     }
 }
 
