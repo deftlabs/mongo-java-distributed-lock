@@ -31,32 +31,35 @@ import static org.junit.Assert.*;
 // Java
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
+
 
 /**
  * The standalone threaded lock tests.
  */
 public final class StandaloneThreadLockTests {
 
-
     private void test() throws Exception {
         final CountDownLatch countDownLatch = new CountDownLatch(THREAD_COUNT);
 
-
+        final AtomicBoolean locked = new AtomicBoolean(false);
         final DistributedLockSvc lockSvc = createSimpleLockSvc();
 
         try {
 
-            for (int idx=0; idx < THREAD_COUNT; idx++) {
-                new Thread(new LockTest(countDownLatch, lockSvc)).start();
-            }
-        } finally { lockSvc.shutdown(); }
+            for (int idx=0; idx < THREAD_COUNT; idx++)
+            { new Thread(new LockTest(countDownLatch, lockSvc, locked)).start(); }
 
-        countDownLatch.await();
+            countDownLatch.await();
+
+        } finally { lockSvc.shutdown(); }
     }
 
     private DistributedLockSvc createSimpleLockSvc() {
         final DistributedLockSvcOptions options
         = new DistributedLockSvcOptions("mongodb://127.0.0.1:27017");
+
+        options.setEnableHistory(false);
 
         final DistributedLockSvcFactory factory = new DistributedLockSvcFactory(options);
         return factory.getLockSvc();
@@ -64,9 +67,13 @@ public final class StandaloneThreadLockTests {
 
     private static class LockTest implements Runnable {
 
-        private LockTest(final CountDownLatch pCountDownLatch, final DistributedLockSvc pLockSvc) {
+        private LockTest(   final CountDownLatch pCountDownLatch,
+                            final DistributedLockSvc pLockSvc,
+                            final AtomicBoolean pLocked)
+        {
             _countDownLatch = pCountDownLatch;
             _lockSvc = pLockSvc;
+            _locked = pLocked;
         }
 
         @Override
@@ -80,9 +87,13 @@ public final class StandaloneThreadLockTests {
 
                 try {
                     lock.lock();
-                    //System.out.println("------- locked");
 
-                } finally { /* System.out.println("------- unlocked"); */ lock.unlock(); }
+                    if (!_locked.compareAndSet(false, true)) throw new IllegalStateException("Already locked");
+
+                } finally {
+                    if (!_locked.compareAndSet(true, false)) throw new IllegalStateException("Already unlocked");
+                    lock.unlock();
+                }
             }
 
             final long execTime = System.currentTimeMillis() - startTime;
@@ -92,6 +103,7 @@ public final class StandaloneThreadLockTests {
 
         private final DistributedLockSvc _lockSvc;
         private final CountDownLatch _countDownLatch;
+        private final AtomicBoolean _locked;
     }
 
     private DBCollection getCollection()
@@ -106,7 +118,7 @@ public final class StandaloneThreadLockTests {
 
     private static final int THREAD_COUNT = 200;
 
-    private static final int LOCK_TEST_COUNT = 100;
+    private static final int LOCK_TEST_COUNT = 50;
 
     public static void main(final String [] pArgs) throws Exception {
         final StandaloneThreadLockTests tests = new StandaloneThreadLockTests();
