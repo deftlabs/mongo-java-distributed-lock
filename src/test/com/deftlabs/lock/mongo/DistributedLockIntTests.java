@@ -60,12 +60,39 @@ public final class DistributedLockIntTests {
         try {
             lock = lockSvc.create("testLock");
             try { lock.lock();
-            } finally { lock.unlock(); }
+            } finally { lock.unlock();  }
         } finally { if (lock != null) lockSvc.destroy(lock); }
 
-        // TODO: Verify the data in the history table.
+        assertEquals(2, getHistoryCollection().count());
     }
 
+    @Test
+    public void testSimpleLockWithNestedTryLock() throws Exception {
+        final DistributedLockSvc lockSvc = createSimpleLockSvc();
+        DistributedLock lock = null;
+        try {
+            lock = lockSvc.create("testLock");
+            try {
+                lock.lock();
+                assertEquals(false, lock.tryLock());
+            } finally { lock.unlock();  }
+        } finally { if (lock != null) lockSvc.destroy(lock); }
+
+        assertEquals(2, getHistoryCollection().count());
+    }
+
+    @Test
+    public void testSimpleTryLock() throws Exception {
+        final DistributedLockSvc lockSvc = createSimpleLockSvc();
+        DistributedLock lock = null;
+        try {
+            lock = lockSvc.create("testLock");
+            try { lock.tryLock();
+            } finally { lock.unlock();  }
+        } finally { if (lock != null) lockSvc.destroy(lock); }
+
+        assertEquals(2, getHistoryCollection().count());
+    }
 
     private DistributedLockSvc createSimpleLockSvc() {
         final DistributedLockSvcOptions options
@@ -75,17 +102,9 @@ public final class DistributedLockIntTests {
         return factory.getLockSvc();
     }
 
-    /*
-    @BeforeClass
-    public static void setupLogger() throws Exception {
-
-    }
-    */
-
     @Before
     public void init() throws Exception {
         // Cleanup the test database
-        _mongo = new Mongo(new MongoURI("mongodb://127.0.0.1:27017"));
         getCollection().remove(new BasicDBObject());
         getHistoryCollection().remove(new BasicDBObject());
     }
@@ -101,9 +120,11 @@ public final class DistributedLockIntTests {
     private DBCollection getHistoryCollection()
     { return _mongo.getDB("mongo-distributed-lock").getCollection("lockHistory"); }
 
+    public DistributedLockIntTests() throws Exception {
+        _mongo = new Mongo(new MongoURI("mongodb://127.0.0.1:27017"));
+    }
 
-
-    private Mongo _mongo;
+    private final Mongo _mongo;
 
     private static final Logger LOG = Logger.getLogger(DistributedLockIntTests.class.getName());
 }
