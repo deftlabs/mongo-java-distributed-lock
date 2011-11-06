@@ -106,14 +106,14 @@ public class LockImpl implements DistributedLock {
      */
     @Override
     public void lockInterruptibly()
-    { throw new UnsupportedOperationException("Not yet supported"); }
+    { throw new UnsupportedOperationException("not implemented"); }
 
     /**
      * For now, this is not supported.
      */
     @Override
     public Condition newCondition()
-    { throw new UnsupportedOperationException("Not yet supported"); }
+    { throw new UnsupportedOperationException("not implemented"); }
 
     /**
      * Does not block. Returns right away if not able to lock.
