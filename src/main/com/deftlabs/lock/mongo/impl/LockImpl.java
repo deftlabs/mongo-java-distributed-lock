@@ -174,9 +174,7 @@ public class LockImpl implements DistributedLock {
 
     @Override
     public boolean tryLock(final long pTime, final TimeUnit pTimeUnit) {
-
         if (tryDistributedLock()) return true;
-
         return park(pTimeUnit.toNanos(pTime));
     }
 
@@ -191,7 +189,9 @@ public class LockImpl implements DistributedLock {
     /**
      * Called to initialize the lock.
      */
-    void init() {
+    synchronized void init() {
+        if (_running.get()) throw new IllegalStateException("init already called");
+
         _running.set(true);
         // Start the heartbeat thread
         // Start the lock monitor thread
@@ -204,9 +204,11 @@ public class LockImpl implements DistributedLock {
     /**
      * Called to destroy the lock.
      */
-    void destroy() {
+    synchronized void destroy() {
+        if (!_running.get()) throw new IllegalStateException("destroy already called");
         _running.set(false);
         for (final Thread t : _waitingThreads) t.interrupt();
+        _waitingThreads.clear();
     }
 
     /**
