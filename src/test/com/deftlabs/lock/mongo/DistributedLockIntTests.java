@@ -45,20 +45,24 @@ public final class DistributedLockIntTests {
     @Test
     public void testSimpleLockCreateDestroy() throws Exception {
         final DistributedLockSvc lockSvc = createSimpleLockSvc();
-        DistributedLock lock = null;
-        try { lock = lockSvc.create("testLock");
-        } finally { if (lock != null) lockSvc.destroy(lock); }
+        try {
+            DistributedLock lock = null;
+            try { lock = lockSvc.create("testLock");
+            } finally { if (lock != null) lockSvc.destroy(lock); }
+        } finally { lockSvc.shutdown(); }
     }
 
     @Test
     public void testSimpleLockCreateLockUnlockDestroy() throws Exception {
         final DistributedLockSvc lockSvc = createSimpleLockSvc();
-        DistributedLock lock = null;
         try {
-            lock = lockSvc.create("testLock");
-            try { lock.lock();
-            } finally { lock.unlock();  }
-        } finally { if (lock != null) lockSvc.destroy(lock); }
+            DistributedLock lock = null;
+            try {
+                lock = lockSvc.create("testLock");
+                try { lock.lock();
+                } finally { lock.unlock();  }
+            } finally { if (lock != null) lockSvc.destroy(lock); }
+        } finally { lockSvc.shutdown(); }
 
         assertEquals(2, getHistoryCollection().count());
     }
@@ -66,14 +70,16 @@ public final class DistributedLockIntTests {
     @Test
     public void testSimpleLockWithNestedTryLock() throws Exception {
         final DistributedLockSvc lockSvc = createSimpleLockSvc();
-        DistributedLock lock = null;
         try {
-            lock = lockSvc.create("testLock");
+            DistributedLock lock = null;
             try {
-                lock.lock();
-                assertEquals(false, lock.tryLock());
-            } finally { lock.unlock();  }
-        } finally { if (lock != null) lockSvc.destroy(lock); }
+                lock = lockSvc.create("testLock");
+                try {
+                    lock.lock();
+                    assertEquals(false, lock.tryLock());
+                } finally { lock.unlock();  }
+            } finally { if (lock != null) lockSvc.destroy(lock); }
+        } finally { lockSvc.shutdown(); }
 
         assertEquals(2, getHistoryCollection().count());
     }
@@ -81,12 +87,14 @@ public final class DistributedLockIntTests {
     @Test
     public void testSimpleTryLock() throws Exception {
         final DistributedLockSvc lockSvc = createSimpleLockSvc();
-        DistributedLock lock = null;
         try {
-            lock = lockSvc.create("testLock");
-            try { lock.tryLock();
-            } finally { lock.unlock();  }
-        } finally { if (lock != null) lockSvc.destroy(lock); }
+            DistributedLock lock = null;
+            try {
+                lock = lockSvc.create("testLock");
+                try { lock.tryLock();
+                } finally { lock.unlock();  }
+            } finally { if (lock != null) lockSvc.destroy(lock); }
+        } finally { lockSvc.shutdown(); }
 
         assertEquals(2, getHistoryCollection().count());
     }
@@ -94,12 +102,14 @@ public final class DistributedLockIntTests {
     @Test
     public void testSimpleTimedTryLock() throws Exception {
         final DistributedLockSvc lockSvc = createSimpleLockSvc();
-        DistributedLock lock = null;
         try {
-            lock = lockSvc.create("testLock");
-            try { assertEquals(true, lock.tryLock(0, TimeUnit.SECONDS));
-            } finally { lock.unlock();  }
-        } finally { if (lock != null) lockSvc.destroy(lock); }
+            DistributedLock lock = null;
+            try {
+                lock = lockSvc.create("testLock");
+                try { assertEquals(true, lock.tryLock(0, TimeUnit.SECONDS));
+                } finally { lock.unlock();  }
+            } finally { if (lock != null) lockSvc.destroy(lock); }
+        } finally { lockSvc.shutdown(); }
 
         assertEquals(2, getHistoryCollection().count());
     }
@@ -107,14 +117,16 @@ public final class DistributedLockIntTests {
     @Test
     public void testSimpleTimedTryLock2() throws Exception {
         final DistributedLockSvc lockSvc = createSimpleLockSvc();
-        DistributedLock lock = null;
         try {
-            lock = lockSvc.create("testLock");
+            DistributedLock lock = null;
             try {
-                lock.lock();
-                assertEquals(false, lock.tryLock(0, TimeUnit.SECONDS));
-            } finally { lock.unlock();  }
-        } finally { if (lock != null) lockSvc.destroy(lock); }
+                lock = lockSvc.create("testLock");
+                try {
+                    lock.lock();
+                    assertEquals(false, lock.tryLock(0, TimeUnit.SECONDS));
+                } finally { lock.unlock();  }
+            } finally { if (lock != null) lockSvc.destroy(lock); }
+        } finally { lockSvc.shutdown(); }
 
         assertEquals(2, getHistoryCollection().count());
     }
@@ -122,21 +134,23 @@ public final class DistributedLockIntTests {
     @Test
     public void testSimpleTimedTryLock3() throws Exception {
         final DistributedLockSvc lockSvc = createSimpleLockSvc();
-        DistributedLock lock = null;
         try {
-            lock = lockSvc.create("testLock");
+            DistributedLock lock = null;
             try {
-                lock.lock();
+                lock = lockSvc.create("testLock");
+                try {
+                    lock.lock();
 
-                final long startTime = System.currentTimeMillis();
-                assertEquals(false, lock.tryLock(1, TimeUnit.SECONDS));
+                    final long startTime = System.currentTimeMillis();
+                    assertEquals(false, lock.tryLock(1, TimeUnit.SECONDS));
 
-                final long blockTime = System.currentTimeMillis() - startTime;
-                final long diff = blockTime - 1000;
+                    final long blockTime = System.currentTimeMillis() - startTime;
+                    final long diff = blockTime - 1000;
 
-                assertEquals(true, (diff <= 1));
-            } finally { lock.unlock();  }
-        } finally { if (lock != null) lockSvc.destroy(lock); }
+                    assertEquals(true, (diff <= 5));
+                } finally { lock.unlock();  }
+            } finally { if (lock != null) lockSvc.destroy(lock); }
+        } finally { lockSvc.shutdown(); }
 
         assertEquals(2, getHistoryCollection().count());
     }
