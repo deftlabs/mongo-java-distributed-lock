@@ -24,7 +24,7 @@
     <dependencies>
         <dependency>
             <groupId>org.mongodb</groupId>
-            <artifactId>mongo-java-distributed-lock</artifactId>
+            <artifactId>mongo-java-driver</artifactId>
             <version>[2.6,)</version>
         </dependency>
     </dependencies>
