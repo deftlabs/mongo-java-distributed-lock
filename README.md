@@ -5,9 +5,15 @@ mongo-java-distributed-lock
 About
 ------------
 
-A Java distributed lock library that uses MongoDB as the central sync point.
+A Java distributed lock library that uses [MongoDB](http://www.mongodb.org/) as the central sync point. [See the Wiki](https://github.com/deftlabs/mongo-java-distributed-lock/wiki) for more information.
 
-THIS IS A CURRENTLY A WORK IN PROGRESS - NOT DONE YET
+This library is currently in alpha.
+
+Usage
+------------
+
+* [Javadocs](http://api.deftlabs.com/mongo-java-distributed-lock)
+* [Getting Started](https://github.com/deftlabs/mongo-java-distributed-lock/wiki/Getting-Started)
 
 License
 ------------
