@@ -23,6 +23,7 @@ import com.deftlabs.lock.mongo.DistributedLockSvcOptions;
 // Mongo
 import com.mongodb.Mongo;
 import com.mongodb.DB;
+import com.mongodb.DBCursor;
 import com.mongodb.DBCollection;
 import com.mongodb.BasicDBObject;
 import com.mongodb.WriteResult;
@@ -38,6 +39,33 @@ import java.util.Date;
  * that are responsible for data access.
  */
 final class LockDao extends BaseDao {
+
+    /**
+     * Increment the lock heartbeat time.
+     */
+    static void heartbeat(  final Mongo pMongo,
+                            final String pLockName,
+                            final ObjectId pLockId,
+                            final DistributedLockOptions pLockOptions,
+                            final DistributedLockSvcOptions pSvcOptions)
+
+    {
+        try {
+            requestStart(pMongo, pSvcOptions);
+
+            final long serverTime = getServerTime(pMongo, pSvcOptions);
+
+            final BasicDBObject query = new BasicDBObject(LockDef.ID.field, pLockName);
+            query.put(LockDef.LOCK_ID.field, pLockId);
+            query.put(LockDef.STATE.field, LockState.LOCKED.code());
+
+            final BasicDBObject toSet = new BasicDBObject(LockDef.LAST_HEARTBEAT.field, new Date(serverTime));
+            toSet.put(LockDef.LOCK_TIMEOUT_TIME.field, new Date(serverTime + pLockOptions.getInactiveLockTimeout()));
+
+            getDbCollection(pMongo, pSvcOptions).update(query, new BasicDBObject(SET, toSet), false, false);
+
+        } finally { requestDone(pMongo, pSvcOptions); }
+    }
 
     /**
      * Try and get the lock. If unable to do so, this returns false.
@@ -102,6 +130,7 @@ final class LockDao extends BaseDao {
         toSet.put(LockDef.UPDATED.field, now);
         toSet.put(LockDef.LAST_HEARTBEAT.field, now);
         toSet.put(LockDef.LOCK_ACQUIRED_TIME.field, now);
+        toSet.put(LockDef.LOCK_TIMEOUT_TIME.field, new Date((serverTime + pLockOptions.getInactiveLockTimeout())));
         toSet.put(LockDef.LOCK_ID.field, lockId);
         toSet.put(LockDef.STATE.field, LockState.LOCKED.code());
         toSet.put(LockDef.OWNER_APP_NAME.field, pSvcOptions.getAppName());
@@ -154,6 +183,7 @@ final class LockDao extends BaseDao {
         lockDoc.put(LockDef.LOCK_ACQUIRED_TIME.field, now);
         lockDoc.put(LockDef.LOCK_ID.field, lockId);
         lockDoc.put(LockDef.STATE.field, LockState.LOCKED.code());
+        lockDoc.put(LockDef.LOCK_TIMEOUT_TIME.field, new Date((serverTime + pLockOptions.getInactiveLockTimeout())));
         lockDoc.put(LockDef.OWNER_APP_NAME.field, pSvcOptions.getAppName());
         lockDoc.put(LockDef.OWNER_ADDRESS.field, pSvcOptions.getHostAddress());
         lockDoc.put(LockDef.OWNER_HOSTNAME.field, pSvcOptions.getHostname());
@@ -208,6 +238,7 @@ final class LockDao extends BaseDao {
         toSet.put(LockDef.LIBRARY_VERSION.field, null);
         toSet.put(LockDef.UPDATED.field, new Date(getServerTime(pMongo, pSvcOptions)));
         toSet.put(LockDef.LOCK_ACQUIRED_TIME.field, null);
+        toSet.put(LockDef.LOCK_TIMEOUT_TIME.field, null);
         toSet.put(LockDef.LOCK_ID.field, null);
         toSet.put(LockDef.STATE.field, LockState.UNLOCKED.code());
         toSet.put(LockDef.OWNER_APP_NAME.field, null);
@@ -236,10 +267,26 @@ final class LockDao extends BaseDao {
                                     final DistributedLockSvcOptions pSvcOptions)
     {
 
+        // Adjust the time buffer to  make sure we don't have small time issues.
+        final long queryServerTime = getServerTime(pMongo, pSvcOptions);
 
+        final BasicDBObject query = new BasicDBObject(LockDef.STATE.field, LockState.LOCKED.code());
+        query.put(LockDef.LOCK_TIMEOUT_TIME.field, new BasicDBObject(LT, new Date(queryServerTime)));
 
+        final DBCursor cur = getDbCollection(pMongo, pSvcOptions).find(query).batchSize(10);
+
+        try {
+            while (cur.hasNext()) {
+                // We are going to double check and timeout if necessary.
+                // Look at the last ping date and expire timeout... make sure we
+                // don't step on a short lived lock (with fast fail).
+                final long serverTime = getServerTime(pMongo, pSvcOptions);
+
+                // TODO: Add the findAndModify to timeout the lock.
+
+            }
+        } finally { if (cur != null) cur.close(); }
     }
-
 
     /**
      * Returns the collection.
@@ -262,17 +309,14 @@ final class LockDao extends BaseDao {
         idStateIdx.put(LockDef.STATE.field, 1);
         getDbCollection(pMongo, pSvcOptions).ensureIndex(idStateIdx, "idStateV1Idx", false);
 
+        final BasicDBObject stateTimeoutIdx = new BasicDBObject(LockDef.STATE.field, 1);
+        stateTimeoutIdx.put(LockDef.LOCK_TIMEOUT_TIME.field, 1);
+        getDbCollection(pMongo, pSvcOptions).ensureIndex(stateTimeoutIdx, "stateTimeoutV1Idx", false);
+
         final BasicDBObject idStateLockIdIdx = new BasicDBObject(LockDef.ID.field, 1);
         idStateLockIdIdx.put(LockDef.LOCK_ID.field, 1);
         idStateLockIdIdx.put(LockDef.STATE.field, 1);
         getDbCollection(pMongo, pSvcOptions).ensureIndex(idStateLockIdIdx, "idStateLockIdV1Idx", false);
-
-        // This is a test of the covered index. This may be dumb.
-        final BasicDBObject fullIdx = new BasicDBObject();
-        for (final LockDef def : LockDef.values())
-        { if (def != LockDef.ID) fullIdx.put(def.field, 1); }
-
-        getDbCollection(pMongo, pSvcOptions).ensureIndex(fullIdx, "fullV1Idx", false);
     }
 }
 

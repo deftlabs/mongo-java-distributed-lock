@@ -191,14 +191,7 @@ public class LockImpl implements DistributedLock {
      */
     synchronized void init() {
         if (_running.get()) throw new IllegalStateException("init already called");
-
         _running.set(true);
-        // Start the heartbeat thread
-        // Start the lock monitor thread
-
-        // The monitor thread needs to see if the lock has been released by another process
-        // and let the local thread(s) try to get. If they are not able to acquire, then they
-        // will go back into park mode.
     }
 
     /**
@@ -222,6 +215,15 @@ public class LockImpl implements DistributedLock {
      */
     @Override
     public String getName() { return _name; }
+
+    @Override
+    public ObjectId getLockId() { return _lockId; }
+
+    /**
+     * Returns the options used to configure this lock.
+     */
+    @Override
+    public DistributedLockOptions getOptions() { return _lockOptions; }
 
     private final String _name;
     private final Mongo _mongo;

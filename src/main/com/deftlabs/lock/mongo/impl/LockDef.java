@@ -39,6 +39,7 @@ enum LockDef {
     OWNER_THREAD_GROUP_NAME("ownerThreadGroupName"),
 
     INACTIVE_LOCK_TIMEOUT("inactiveLockTimeout"), // The number of ms before timeout (since last heartbeat)
+    LOCK_TIMEOUT_TIME("lockTimeoutTime"),
 
     LOCK_ATTEMPT_COUNT("lockAttemptCount"); // The number of times another thread/process has requested this lock (since locked)
 

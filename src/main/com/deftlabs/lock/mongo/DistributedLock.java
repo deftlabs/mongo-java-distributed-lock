@@ -16,6 +16,9 @@
 
 package com.deftlabs.lock.mongo;
 
+// Mongo
+import org.bson.types.ObjectId;
+
 // Java
 import java.util.concurrent.locks.Lock;
 
@@ -33,6 +36,16 @@ public interface DistributedLock extends Lock {
      * Returns the lock name.
      */
     public String getName();
+
+    /**
+     * Returns the lock id if current locked (null if not).
+     */
+    public ObjectId getLockId();
+
+    /**
+     * Returns the options used to configure this lock.
+     */
+    public DistributedLockOptions getOptions();
 
 }
 

@@ -107,6 +107,14 @@ public final class SvcImpl implements DistributedLockSvc {
             LockDao.setup(_mongo, _options);
             if (_options.getEnableHistory()) LockHistoryDao.setup(_mongo, _options);
 
+            // Init the monitor threads.
+            _lockHeartbeat = new Monitor.LockHeartbeat(_mongo, _options, _locks);
+            (new Thread(_lockHeartbeat)).start();
+
+            _lockTimeout = new Monitor.LockTimeout(_mongo, _options);
+            (new Thread(_lockTimeout)).start();
+
+
         } catch (final Throwable t) { throw new DistributedLockException(t);
         } finally { _lock.unlock(); }
     }
@@ -116,6 +124,8 @@ public final class SvcImpl implements DistributedLockSvc {
      */
     @Override
     public void shutdown() {
+
+        if (!_running.get()) throw new IllegalStateException("shutdown called but not running");
         _running.set(false);
 
         try {
@@ -129,10 +139,11 @@ public final class SvcImpl implements DistributedLockSvc {
                 ((LockImpl)lock).destroy();
             }
 
+            _lockTimeout.stopRunning();
+            _lockHeartbeat.stopRunning();
+
         } catch (final Throwable t) { throw new DistributedLockException(t);
         } finally { _lock.unlock(); }
-
-
     }
 
     @Override
@@ -144,6 +155,9 @@ public final class SvcImpl implements DistributedLockSvc {
     private final DistributedLockSvcOptions _options;
 
     private final AtomicBoolean _running = new AtomicBoolean(false);
+
+    private Monitor.LockHeartbeat _lockHeartbeat;
+    private Monitor.LockTimeout _lockTimeout;
 
     private final Map<String, DistributedLock> _locks = new ConcurrentHashMap<String, DistributedLock>();
 

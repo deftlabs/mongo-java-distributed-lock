@@ -92,6 +92,8 @@ abstract class BaseDao {
     protected static final String INC = "$inc";
     protected static final String SET = "$set";
 
+    protected static final String LT = "$lt";
+
     private static final String LOCAL_TIME_FIELD = "localTime";
     private static final int SERVER_TIME_TRIES = 3;
 

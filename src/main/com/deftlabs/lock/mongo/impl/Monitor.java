@@ -16,6 +16,17 @@
 
 package com.deftlabs.lock.mongo.impl;
 
+// Lib
+import com.deftlabs.lock.mongo.DistributedLock;
+import com.deftlabs.lock.mongo.DistributedLockSvcOptions;
+
+// Mongo
+import com.mongodb.Mongo;
+import org.bson.types.ObjectId;
+
+// Java
+import java.util.Map;
+
 /**
  * The lock monitors.
  */
@@ -31,8 +42,43 @@ final class Monitor {
     static class LockHeartbeat implements Runnable {
         @Override
         public void run() {
+            while (_running) {
+                try {
+                    for (final String lockName : _locks.keySet()) {
+                        final DistributedLock lock = _locks.get(lockName);
 
+                        final ObjectId lockId = lock.getLockId();
+
+                        if (!lock.isLocked() || lockId == null) continue;
+
+                        LockDao.heartbeat(_mongo, lockName, lockId, lock.getOptions(), _svcOptions);
+                    }
+
+                    Thread.sleep(HEARTBEAT_FREQUENCY);
+                } catch (final InterruptedException ie) { break;
+                } catch (final Throwable t) {
+                    t.printStackTrace();
+                    // TOOD: Handle with global logger
+                }
+            }
         }
+
+        LockHeartbeat(  final Mongo pMongo,
+                        final DistributedLockSvcOptions pSvcOptions,
+                        final Map<String, DistributedLock> pLocks)
+        {
+            _mongo = pMongo;
+            _svcOptions = pSvcOptions;
+            _locks = pLocks;
+        }
+
+        private static final long HEARTBEAT_FREQUENCY = 5000;
+
+        void stopRunning() { _running = false; }
+        private volatile boolean _running = true;
+        private final Mongo _mongo;
+        private final DistributedLockSvcOptions _svcOptions;
+        private final Map<String, DistributedLock> _locks;
     }
 
     /**
@@ -43,8 +89,34 @@ final class Monitor {
     static class LockTimeout implements Runnable {
         @Override
         public void run() {
+            while (_running) {
+                try {
 
+                    LockDao.expireInactiveLocks(_mongo, _svcOptions);
+
+                    Thread.sleep(CHECK_FREQUENCY);
+                } catch (final InterruptedException ie) { break;
+                } catch (final Throwable t) {
+                    t.printStackTrace();
+                    // TOOD: Handle with global logger
+                }
+            }
         }
+
+        LockTimeout(final Mongo pMongo,
+                    final DistributedLockSvcOptions pSvcOptions)
+        {
+            _mongo = pMongo;
+            _svcOptions = pSvcOptions;
+        }
+
+        private static final long CHECK_FREQUENCY = 60000;
+
+        void stopRunning() { _running = false; }
+        private volatile boolean _running = true;
+
+        private final Mongo _mongo;
+        private final DistributedLockSvcOptions _svcOptions;
     }
 }
 
