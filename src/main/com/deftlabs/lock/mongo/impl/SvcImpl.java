@@ -31,6 +31,7 @@ import com.mongodb.MongoURI;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * The distributed lock server implementation.
@@ -94,7 +95,9 @@ public final class SvcImpl implements DistributedLockSvc {
     /**
      * Initialize the service.
      */
-    public void init() {
+    @Override
+    public void startup() {
+        _running.set(true);
         try {
             _lock.lock();
 
@@ -108,11 +111,39 @@ public final class SvcImpl implements DistributedLockSvc {
         } finally { _lock.unlock(); }
     }
 
+    /**
+     * Initialize the service.
+     */
+    @Override
+    public void shutdown() {
+        _running.set(false);
+
+        try {
+            _lock.lock();
+
+            // Interrupt the locks.
+            for (final String lockName : _locks.keySet()) {
+                final DistributedLock lock = _locks.get(lockName);
+                if (lock == null) continue;
+
+                ((LockImpl)lock).destroy();
+            }
+
+        } catch (final Throwable t) { throw new DistributedLockException(t);
+        } finally { _lock.unlock(); }
+
+
+    }
+
+    @Override
+    public boolean isRunning() { return _running.get(); }
 
     private Mongo _mongo;
 
     private final ReentrantLock _lock = new ReentrantLock(true);
     private final DistributedLockSvcOptions _options;
+
+    private final AtomicBoolean _running = new AtomicBoolean(false);
 
     private final Map<String, DistributedLock> _locks = new ConcurrentHashMap<String, DistributedLock>();
 
