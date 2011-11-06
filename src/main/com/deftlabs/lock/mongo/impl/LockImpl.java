@@ -82,8 +82,8 @@ public class LockImpl implements DistributedLock {
             }
         }
 
-        _waitingThreads.remove();
         if (wasInterrupted) current.interrupt();
+        else _waitingThreads.remove();
     }
 
     /**
