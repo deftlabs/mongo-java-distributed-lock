@@ -26,13 +26,10 @@ import com.mongodb.DBCollection;
 import org.junit.Test;
 import org.junit.Before;
 import org.junit.After;
-import org.junit.BeforeClass;
 import static org.junit.Assert.*;
 
 // Java
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import java.util.logging.LogManager;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Test the distributed lock. You must be running mongo on localhost:27017 for this
@@ -94,6 +91,56 @@ public final class DistributedLockIntTests {
         assertEquals(2, getHistoryCollection().count());
     }
 
+    @Test
+    public void testSimpleTimedTryLock() throws Exception {
+        final DistributedLockSvc lockSvc = createSimpleLockSvc();
+        DistributedLock lock = null;
+        try {
+            lock = lockSvc.create("testLock");
+            try { assertEquals(true, lock.tryLock(0, TimeUnit.SECONDS));
+            } finally { lock.unlock();  }
+        } finally { if (lock != null) lockSvc.destroy(lock); }
+
+        assertEquals(2, getHistoryCollection().count());
+    }
+
+    @Test
+    public void testSimpleTimedTryLock2() throws Exception {
+        final DistributedLockSvc lockSvc = createSimpleLockSvc();
+        DistributedLock lock = null;
+        try {
+            lock = lockSvc.create("testLock");
+            try {
+                lock.lock();
+                assertEquals(false, lock.tryLock(0, TimeUnit.SECONDS));
+            } finally { lock.unlock();  }
+        } finally { if (lock != null) lockSvc.destroy(lock); }
+
+        assertEquals(2, getHistoryCollection().count());
+    }
+
+    @Test
+    public void testSimpleTimedTryLock3() throws Exception {
+        final DistributedLockSvc lockSvc = createSimpleLockSvc();
+        DistributedLock lock = null;
+        try {
+            lock = lockSvc.create("testLock");
+            try {
+                lock.lock();
+
+                final long startTime = System.currentTimeMillis();
+                assertEquals(false, lock.tryLock(1, TimeUnit.SECONDS));
+
+                final long blockTime = System.currentTimeMillis() - startTime;
+                final long diff = blockTime - 1000;
+
+                assertEquals(true, (diff <= 1));
+            } finally { lock.unlock();  }
+        } finally { if (lock != null) lockSvc.destroy(lock); }
+
+        assertEquals(2, getHistoryCollection().count());
+    }
+
     private DistributedLockSvc createSimpleLockSvc() {
         final DistributedLockSvcOptions options
         = new DistributedLockSvcOptions("mongodb://127.0.0.1:27017");
@@ -126,6 +173,5 @@ public final class DistributedLockIntTests {
 
     private final Mongo _mongo;
 
-    private static final Logger LOG = Logger.getLogger(DistributedLockIntTests.class.getName());
 }
 
