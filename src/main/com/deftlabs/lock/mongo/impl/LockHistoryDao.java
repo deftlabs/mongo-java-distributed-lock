@@ -51,6 +51,23 @@ final class LockHistoryDao extends BaseDao {
                         final Object pLockId,
                         final boolean pTimedOut)
     {
+
+        insert(pMongo, pLockName, pSvcOptions, pLockOptions.getInactiveLockTimeout(), pServerTime, pLockState, pLockId, pTimedOut);
+    }
+
+
+    /**
+     * Insert an entry.
+     */
+    static void insert( final Mongo pMongo,
+                        final String pLockName,
+                        final DistributedLockSvcOptions pSvcOptions,
+                        final int pInactiveLockTimeout,
+                        long pServerTime,
+                        final LockState pLockState,
+                        final Object pLockId,
+                        final boolean pTimedOut)
+    {
         final Thread currentThread = Thread.currentThread();
 
         long serverTime = pServerTime;
@@ -71,7 +88,7 @@ final class LockHistoryDao extends BaseDao {
         lockDoc.put(LockHistoryDef.OWNER_THREAD_NAME.field, currentThread.getName());
         lockDoc.put(LockHistoryDef.OWNER_THREAD_GROUP_NAME.field, currentThread.getThreadGroup().getName());
 
-        lockDoc.put(LockHistoryDef.INACTIVE_LOCK_TIMEOUT.field, pLockOptions.getInactiveLockTimeout());
+        lockDoc.put(LockHistoryDef.INACTIVE_LOCK_TIMEOUT.field, pInactiveLockTimeout);
 
         lockDoc.put(LockHistoryDef.TIMED_OUT.field, pTimedOut);
 
