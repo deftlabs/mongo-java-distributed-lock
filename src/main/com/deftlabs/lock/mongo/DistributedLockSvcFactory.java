@@ -28,14 +28,18 @@ public final class DistributedLockSvcFactory {
         _options = pOptions;
     }
 
+    /**
+     * Returns the global lock service. This method also calls the startup method on the
+     * lock service returned (when it is created).
+     */
     public DistributedLockSvc getLockSvc() {
-        if (_lockSvc != null) return _lockSvc;
+        if (_lockSvc != null && _lockSvc.isRunning()) return _lockSvc;
 
         synchronized(_mutex) {
-            if (_lockSvc != null) return _lockSvc;
+            if (_lockSvc != null && _lockSvc.isRunning()) return _lockSvc;
 
             final SvcImpl svc = new SvcImpl(_options);
-            svc.init();
+            svc.startup();
             _lockSvc = svc;
             return _lockSvc;
         }
