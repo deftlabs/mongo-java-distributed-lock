@@ -38,7 +38,20 @@ public interface DistributedLockSvc {
      */
     public void destroy(final DistributedLock pLock);
 
-    // TODO Add init/destroy methods to this class to ensure locks are cleaned up.
+    /**
+     * Part of the usage contract. The startup method is called by the factory.
+     */
+    public void startup();
+
+    /**
+     * Part of the usage contract. Must be called when the app stops.
+     */
+    public void shutdown();
+
+    /**
+     * Returns true if the lock service is running.
+     */
+    public boolean isRunning();
 
 }
 
