@@ -50,9 +50,9 @@ limitations under the License.
     <property name="groupId" value="com.deftlabs"/>
     <property name="artifactId" value="mongo-java-distributed-lock"/>
 
-    <property name="maven-snapshots-repository-id" value="sonatype-nexus-snapshots-mongo-java-distributed-lock"/>
+    <property name="maven-snapshots-repository-id" value="sonatype-nexus-snapshots-deftlabs"/>
     <property name="maven-snapshots-repository-url" value="https://oss.sonatype.org/content/repositories/snapshots"/>
-    <property name="maven-staging-repository-id" value="sonatype-nexus-staging-mongo-java-distributed-lock"/>
+    <property name="maven-staging-repository-id" value="sonatype-nexus-staging-deftlabs"/>
     <property name="maven-staging-repository-url" value="https://oss.sonatype.org/service/local/staging/deploy/maven2/"/>
 
     <!-- ******************************************************************* -->
@@ -195,7 +195,8 @@ limitations under the License.
         <delete dir="${dir.build}/javadocs/"/>
 
         <javadoc
-            packagenames="com.deftlabs.scheduler.mongo"
+            packagenames="com.deftlabs.lock.mongo"
+            excludepackagenames="com.deftlabs.lock.mongo.impl"
             sourcepath="src/main/"
             defaultexcludes="yes"
             destdir="${dir.build}/javadocs"
@@ -238,7 +239,7 @@ limitations under the License.
             <arg value="-DpomFile=${dir.build}/maven-mongo-java-distributed-lock.xml"/>
             <arg value="-Dfile=${dir.build}/dist/mongo-java-distributed-lock-${build.conf.lib.version}.jar"/>
             <arg value="-Dkeyname=665C1184"/>
-            <arg value="-Pgpg-mongo-java-distributed-lock" />
+            <arg value="-Pgpg-deftlabs"/>
         </artifact:mvn>
 
         <artifact:mvn>
@@ -249,7 +250,7 @@ limitations under the License.
             <arg value="-Dfile=${dir.build}/dist/mongo-java-distributed-lock-sources-${build.conf.lib.version}.jar"/>
             <arg value="-Dclassifier=sources"/>
             <arg value="-Dkeyname=665C1184"/>
-            <arg value="-Pgpg-mongo-java-distributed-lock"/>
+            <arg value="-Pgpg-deftlabs"/>
         </artifact:mvn>
 
         <artifact:mvn>
@@ -260,7 +261,7 @@ limitations under the License.
             <arg value="-Dfile=${dir.build}/dist/mongo-java-distributed-lock-javadoc-${build.conf.lib.version}.jar"/>
             <arg value="-Dclassifier=javadoc"/>
             <arg value="-Dkeyname=665C1184"/>
-            <arg value="-Pgpg-mongo-java-distributed-lock"/>
+            <arg value="-Pgpg-deftlabs"/>
         </artifact:mvn>
 
     </target>
