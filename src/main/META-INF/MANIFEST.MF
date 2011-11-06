@@ -4,4 +4,4 @@ Bundle-Name: mongo-java-distributed-lock
 Bundle-SymbolicName: com.deftlabs.lock.mongo
 Bundle-Version: @VERSION@
 Import-Package: com.mongodb
-Export-Package: com.deftlabs.lock.mongo
+Export-Package: com.deftlabs.lock.mongo, com.deftlabs.lock.mongo.impl
