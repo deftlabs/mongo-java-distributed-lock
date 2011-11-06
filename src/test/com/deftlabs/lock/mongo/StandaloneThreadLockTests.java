@@ -30,14 +30,68 @@ import static org.junit.Assert.*;
 
 // Java
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CountDownLatch;
 
 /**
  * The standalone threaded lock tests.
  */
 public final class StandaloneThreadLockTests {
 
-    private void test() {
 
+    private void test() throws Exception {
+        final CountDownLatch countDownLatch = new CountDownLatch(THREAD_COUNT);
+
+
+        final DistributedLockSvc lockSvc = createSimpleLockSvc();
+
+        try {
+
+            for (int idx=0; idx < THREAD_COUNT; idx++) {
+                new Thread(new LockTest(countDownLatch, lockSvc)).start();
+            }
+        } finally { lockSvc.shutdown(); }
+
+        countDownLatch.await();
+    }
+
+    private DistributedLockSvc createSimpleLockSvc() {
+        final DistributedLockSvcOptions options
+        = new DistributedLockSvcOptions("mongodb://127.0.0.1:27017");
+
+        final DistributedLockSvcFactory factory = new DistributedLockSvcFactory(options);
+        return factory.getLockSvc();
+    }
+
+    private static class LockTest implements Runnable {
+
+        private LockTest(final CountDownLatch pCountDownLatch, final DistributedLockSvc pLockSvc) {
+            _countDownLatch = pCountDownLatch;
+            _lockSvc = pLockSvc;
+        }
+
+        @Override
+        public void run() {
+
+            final DistributedLock lock = _lockSvc.create("com.deftlabs.lock.mongo.testLock");
+
+            final long startTime = System.currentTimeMillis();
+
+            for (int idx = 0; idx < LOCK_TEST_COUNT; idx++) {
+
+                try {
+                    lock.lock();
+                    //System.out.println("------- locked");
+
+                } finally { /* System.out.println("------- unlocked"); */ lock.unlock(); }
+            }
+
+            final long execTime = System.currentTimeMillis() - startTime;
+
+            _countDownLatch.countDown();
+        }
+
+        private final DistributedLockSvc _lockSvc;
+        private final CountDownLatch _countDownLatch;
     }
 
     private DBCollection getCollection()
@@ -49,6 +103,10 @@ public final class StandaloneThreadLockTests {
     private StandaloneThreadLockTests() throws Exception {
         _mongo = new Mongo(new MongoURI("mongodb://127.0.0.1:27017"));
     }
+
+    private static final int THREAD_COUNT = 200;
+
+    private static final int LOCK_TEST_COUNT = 100;
 
     public static void main(final String [] pArgs) throws Exception {
         final StandaloneThreadLockTests tests = new StandaloneThreadLockTests();
