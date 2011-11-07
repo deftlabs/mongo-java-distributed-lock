@@ -28,7 +28,7 @@ import java.util.concurrent.locks.Lock;
 public interface DistributedLock extends Lock {
 
     /**
-     * Returns true if the lock is currently locked.
+     * Returns true if the lock is currently locked by the local process.
      */
     public boolean isLocked();
 
@@ -46,6 +46,12 @@ public interface DistributedLock extends Lock {
      * Returns the options used to configure this lock.
      */
     public DistributedLockOptions getOptions();
+
+    /**
+     * Wakeup any blocked threads. This should <b>ONLY</b> be used by the lock service,
+     * not the user.
+     */
+    public void wakeupBlocked();
 
 }
 
