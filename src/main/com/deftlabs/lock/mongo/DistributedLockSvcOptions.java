@@ -61,7 +61,7 @@ public class DistributedLockSvcOptions {
         _appName = pAppName;
 
         try { _hostAddress = InetAddress.getLocalHost().getHostAddress();
-        } catch (final UnknownHostException e) { _hostname = null; }
+        } catch (final UnknownHostException e) { _hostAddress = null; }
 
         try { _hostname = InetAddress.getLocalHost().getHostName();
         } catch (final UnknownHostException e) { _hostname = null; }
