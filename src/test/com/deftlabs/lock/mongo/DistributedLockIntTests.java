@@ -61,9 +61,11 @@ public final class DistributedLockIntTests {
                 lock = lockSvc.create("testLock");
                 try { lock.lock();
                 } finally { lock.unlock();  }
+
+
+
             } finally { if (lock != null) lockSvc.destroy(lock); }
         } finally { lockSvc.shutdown(); }
-
         assertEquals(2, getHistoryCollection().count());
     }
 
@@ -80,7 +82,6 @@ public final class DistributedLockIntTests {
                 } finally { lock.unlock();  }
             } finally { if (lock != null) lockSvc.destroy(lock); }
         } finally { lockSvc.shutdown(); }
-
         assertEquals(2, getHistoryCollection().count());
     }
 
@@ -95,7 +96,6 @@ public final class DistributedLockIntTests {
                 } finally { lock.unlock();  }
             } finally { if (lock != null) lockSvc.destroy(lock); }
         } finally { lockSvc.shutdown(); }
-
         assertEquals(2, getHistoryCollection().count());
     }
 
