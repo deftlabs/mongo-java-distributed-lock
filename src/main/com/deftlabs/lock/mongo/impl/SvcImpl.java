@@ -114,6 +114,9 @@ public final class SvcImpl implements DistributedLockSvc {
             _lockTimeout = new Monitor.LockTimeout(_mongo, _options);
             (new Thread(_lockTimeout)).start();
 
+            _lockUnlocked = new Monitor.LockUnlocked(_mongo, _options, _locks);
+            (new Thread(_lockUnlocked)).start();
+
 
         } catch (final Throwable t) { throw new DistributedLockException(t);
         } finally { _lock.unlock(); }
@@ -141,6 +144,7 @@ public final class SvcImpl implements DistributedLockSvc {
 
             _lockTimeout.stopRunning();
             _lockHeartbeat.stopRunning();
+            _lockUnlocked.stopRunning();
 
         } catch (final Throwable t) { throw new DistributedLockException(t);
         } finally { _lock.unlock(); }
@@ -158,6 +162,7 @@ public final class SvcImpl implements DistributedLockSvc {
 
     private Monitor.LockHeartbeat _lockHeartbeat;
     private Monitor.LockTimeout _lockTimeout;
+    private Monitor.LockUnlocked _lockUnlocked;
 
     private final Map<String, DistributedLock> _locks = new ConcurrentHashMap<String, DistributedLock>();
 

@@ -210,6 +210,23 @@ final class LockDao extends BaseDao {
     }
 
     /**
+     * Returns true if the lock is locked.
+     */
+    static boolean isLocked(final Mongo pMongo,
+                            final String pLockName,
+                            final DistributedLockSvcOptions pSvcOptions)
+    {
+        final BasicDBObject lock
+        = (BasicDBObject)getDbCollection(pMongo, pSvcOptions).findOne(new BasicDBObject(LockDef.ID.field, pLockName), new BasicDBObject(LockDef.STATE.field, 1));
+
+        if (lock == null) return false;
+
+        final LockState state = LockState.findByCode(lock.getString(LockDef.STATE.field));
+
+        return state.isLocked();
+    }
+
+    /**
      * Find by lock name/id.
      */
     static BasicDBObject findById(  final Mongo pMongo,

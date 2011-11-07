@@ -118,5 +118,53 @@ final class Monitor {
         private final Mongo _mongo;
         private final DistributedLockSvcOptions _svcOptions;
     }
+
+    /**
+     * The lock unlocked thread is responsible for waking up local
+     * threads when a lock state changes.
+     */
+    static class LockUnlocked implements Runnable {
+        @Override
+        public void run() {
+            while (_running) {
+                try {
+                    for (final String lockName : _locks.keySet()) {
+                        final DistributedLock lock = _locks.get(lockName);
+
+                        if (lock.isLocked()) continue;
+
+                        // Check to see if this is locked.
+                        if (LockDao.isLocked(_mongo, lockName, _svcOptions)) continue;
+
+                        // The lock is not locked, wakeup any blocking threads.
+                        lock.wakeupBlocked();
+                    }
+
+                    Thread.sleep(FREQUENCY);
+                } catch (final InterruptedException ie) { break;
+                } catch (final Throwable t) {
+                    t.printStackTrace();
+                    // TOOD: Handle with global logger
+                }
+            }
+        }
+
+        LockUnlocked(   final Mongo pMongo,
+                        final DistributedLockSvcOptions pSvcOptions,
+                        final Map<String, DistributedLock> pLocks)
+        {
+            _mongo = pMongo;
+            _svcOptions = pSvcOptions;
+            _locks = pLocks;
+        }
+
+        private static final long FREQUENCY = 1000;
+
+        void stopRunning() { _running = false; }
+        private volatile boolean _running = true;
+        private final Mongo _mongo;
+        private final DistributedLockSvcOptions _svcOptions;
+        private final Map<String, DistributedLock> _locks;
+    }
 }
 

@@ -102,8 +102,6 @@ public class LockImpl implements DistributedLock {
 
         long startTime = System.nanoTime();
 
-        // Todo... check and see if the pNanos has expired.
-
         // Block while not first in queue or cannot acquire lock
         while (_running.get()) {
 
@@ -119,10 +117,17 @@ public class LockImpl implements DistributedLock {
                 // Check to see if this thread can get the distributed lock
                 if (tryDistributedLock()) { locked = true; break; }
             }
+
+            if ((System.nanoTime() - startTime) >= pNanos) break;
         }
 
-        _waitingThreads.remove();
+        // TODO: There is a problem here... we need to be able to remove
+        // the actual thread, not just the head. This is causing an issue
+        // where we are removing other threads.
+
+
         if (wasInterrupted) { current.interrupt(); return locked; }
+        else _waitingThreads.remove();
 
         return locked;
     }
@@ -224,6 +229,15 @@ public class LockImpl implements DistributedLock {
      */
     @Override
     public DistributedLockOptions getOptions() { return _lockOptions; }
+
+    /**
+     * Wakeup any blocked threads. This should <b>ONLY</b> be used by the lock service,
+     * not the user.
+     */
+    @Override
+    public void wakeupBlocked() {
+        LockSupport.unpark(_waitingThreads.peek());
+    }
 
     private final String _name;
     private final Mongo _mongo;
