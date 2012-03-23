@@ -97,6 +97,8 @@ public class DistributedLockSvcOptions {
     public String getLibVersion() { return LIB_VERSION; }
 
     public String getHostname() { return _hostname; }
+    public void setHostname(final String pV) { _hostname = pV; }
+
     public String getHostAddress() { return _hostAddress; }
 
     /**
