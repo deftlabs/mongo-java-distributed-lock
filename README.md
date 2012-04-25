@@ -15,6 +15,13 @@ Usage
 * [Javadocs](http://api.deftlabs.com/mongo-java-distributed-lock)
 * [Getting Started](https://github.com/deftlabs/mongo-java-distributed-lock/wiki/Getting-Started)
 
+
+Build
+------------
+
+[![Build Status](https://secure.travis-ci.org/deftlabs/mongo-java-distributed-lock.png)](http://travis-ci.org/deftlabs/mongo-java-distributed-lock])
+
+
 License
 ------------
 
