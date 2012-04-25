@@ -19,7 +19,7 @@ Usage
 Build
 ------------
 
-[![Build Status](https://secure.travis-ci.org/deftlabs/mongo-java-distributed-lock.png)](http://travis-ci.org/deftlabs/mongo-java-distributed-lock])
+[![Build Status](https://secure.travis-ci.org/deftlabs/mongo-java-distributed-lock.png)](http://travis-ci.org/deftlabs/mongo-java-distributed-lock)
 
 
 License
