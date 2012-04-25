@@ -152,6 +152,9 @@ public final class DistributedLockIntTests {
             } finally { if (lock != null) lockSvc.destroy(lock); }
         } finally { lockSvc.shutdown(); }
 
+        // In a over utilized env, it can take a second for the history entries to be persisted.
+        Thread.sleep(1000);
+
         assertEquals(2, getHistoryCollection().count());
     }
 
