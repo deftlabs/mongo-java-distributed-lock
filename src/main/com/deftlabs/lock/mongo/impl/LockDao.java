@@ -150,10 +150,8 @@ final class LockDao extends BaseDao {
         = (BasicDBObject)getDbCollection(pMongo, pSvcOptions).findAndModify(query, new BasicDBObject(LockDef.ID.field, 1), null, false, new BasicDBObject(SET, toSet), false, false);
 
         if (lockDoc != null && lockDoc.containsField(LockDef.ID.field)) {
-
             if (pSvcOptions.getEnableHistory())
             { LockHistoryDao.insert( pMongo, pLockName, pSvcOptions, pLockOptions, serverTime, LockState.LOCKED, lockId, false); }
-
             return lockId;
         }
 
