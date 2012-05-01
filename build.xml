@@ -166,7 +166,7 @@ limitations under the License.
     <!-- Run the integration tests. Server must be running to work.          -->
     <!-- ******************************************************************* -->
 
-    <target name="test" depends="compile">
+    <target name="test" depends="unit">
 
         <junit fork="yes" haltonfailure="true">
             <jvmarg value="-Duser.timezone=GMT"/>
