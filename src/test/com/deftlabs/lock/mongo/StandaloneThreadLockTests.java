@@ -76,8 +76,7 @@ public final class StandaloneThreadLockTests {
             _locked = pLocked;
         }
 
-        @Override
-        public void run() {
+        @Override public void run() {
 
             final DistributedLock lock = _lockSvc.create("com.deftlabs.lock.mongo.testLock");
 
@@ -112,9 +111,8 @@ public final class StandaloneThreadLockTests {
     private DBCollection getHistoryCollection()
     { return _mongo.getDB("mongo-distributed-lock").getCollection("lockHistory"); }
 
-    private StandaloneThreadLockTests() throws Exception {
-        _mongo = new Mongo(new MongoURI("mongodb://127.0.0.1:27017"));
-    }
+    private StandaloneThreadLockTests() throws Exception
+    { _mongo = new Mongo(new MongoURI("mongodb://127.0.0.1:27017")); }
 
     private static final int THREAD_COUNT = 200;
 
