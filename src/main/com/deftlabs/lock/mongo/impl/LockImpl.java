@@ -53,8 +53,7 @@ public class LockImpl implements DistributedLock {
         _svcOptions = pSvcOptions;
     }
 
-    @Override
-    public void lock() {
+    @Override public void lock() {
         if (tryDistributedLock()) return;
         park();
     }
@@ -150,22 +149,19 @@ public class LockImpl implements DistributedLock {
     /**
      * This is not supported.
      */
-    @Override
-    public void lockInterruptibly()
+    @Override public void lockInterruptibly()
     { throw new UnsupportedOperationException("not implemented"); }
 
     /**
      * For now, this is not supported.
      */
-    @Override
-    public Condition newCondition()
+    @Override public Condition newCondition()
     { throw new UnsupportedOperationException("not implemented"); }
 
     /**
      * Does not block. Returns right away if not able to lock.
      */
-    @Override
-    public boolean tryLock() {
+    @Override public boolean tryLock() {
         if (isLocked()) return false;
 
         final ObjectId lockId = LockDao.lock(_mongo, _name, _svcOptions, _lockOptions);
@@ -177,14 +173,12 @@ public class LockImpl implements DistributedLock {
         return true;
     }
 
-    @Override
-    public boolean tryLock(final long pTime, final TimeUnit pTimeUnit) {
+    @Override public boolean tryLock(final long pTime, final TimeUnit pTimeUnit) {
         if (tryDistributedLock()) return true;
         return park(pTimeUnit.toNanos(pTime));
     }
 
-    @Override
-    public void unlock() {
+    @Override public void unlock() {
         LockDao.unlock(_mongo, _name, _svcOptions, _lockOptions, _lockId);
         _locked.set(false);
         _lockId = null;
@@ -212,32 +206,25 @@ public class LockImpl implements DistributedLock {
     /**
      * Returns true if the lock is currently locked.
      */
-    @Override
-    public boolean isLocked() { return _locked.get(); }
+    @Override public boolean isLocked() { return _locked.get(); }
 
     /**
      * Returns the lock name.
      */
-    @Override
-    public String getName() { return _name; }
+    @Override public String getName() { return _name; }
 
-    @Override
-    public ObjectId getLockId() { return _lockId; }
+    @Override public ObjectId getLockId() { return _lockId; }
 
     /**
      * Returns the options used to configure this lock.
      */
-    @Override
-    public DistributedLockOptions getOptions() { return _lockOptions; }
+    @Override public DistributedLockOptions getOptions() { return _lockOptions; }
 
     /**
      * Wakeup any blocked threads. This should <b>ONLY</b> be used by the lock service,
      * not the user.
      */
-    @Override
-    public void wakeupBlocked() {
-        LockSupport.unpark(_waitingThreads.peek());
-    }
+    @Override public void wakeupBlocked() { LockSupport.unpark(_waitingThreads.peek()); }
 
     private final String _name;
     private final Mongo _mongo;
@@ -245,12 +232,8 @@ public class LockImpl implements DistributedLock {
     private final DistributedLockSvcOptions _svcOptions;
 
     private volatile ObjectId _lockId;
-
     private final AtomicBoolean _locked = new AtomicBoolean(false);
-
     private final AtomicBoolean _running = new AtomicBoolean(false);
-
     private final Queue<Thread> _waitingThreads = new ConcurrentLinkedQueue<Thread>();
-
 }
 
