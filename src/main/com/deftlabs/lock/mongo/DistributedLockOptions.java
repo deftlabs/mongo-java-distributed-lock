@@ -25,7 +25,7 @@ public class DistributedLockOptions {
     /**
      * Set the inactive lock timeout (time in milliseconds). The default is one minute.
      * This means that if your lock process dies or is killed without unlocking first,
-     * the lock will be reset in one minute (60,000 ms).
+     * the lock will be reset in one minute (120,000 ms).
      */
     public void setInactiveLockTimeout(final int pV) { _inactiveLockTimeout = pV; }
 
@@ -34,6 +34,6 @@ public class DistributedLockOptions {
      */
     public int getInactiveLockTimeout() { return _inactiveLockTimeout; }
 
-    private int _inactiveLockTimeout = 60000;
+    private int _inactiveLockTimeout = 120000;
 }
 
