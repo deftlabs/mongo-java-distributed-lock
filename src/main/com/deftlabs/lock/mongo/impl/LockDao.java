@@ -151,17 +151,22 @@ final class LockDao extends BaseDao {
         toSet.put(LockDef.LOCK_ATTEMPT_COUNT.field, 0);
         toSet.put(LockDef.INACTIVE_LOCK_TIMEOUT.field, pLockOptions.getInactiveLockTimeout());
 
+        // Try and modify the existing lock.
         final BasicDBObject lockDoc
-        = (BasicDBObject)getDbCollection(pMongo, pSvcOptions).findAndModify(query, new BasicDBObject(LockDef.ID.field, 1), null, false, new BasicDBObject(SET, toSet), false, false);
+        = (BasicDBObject)getDbCollection(pMongo, pSvcOptions).findAndModify(query, new BasicDBObject(LockDef.LOCK_ID.field, 1), null, false, new BasicDBObject(SET, toSet), true, false);
 
-        if (lockDoc != null && lockDoc.containsField(LockDef.ID.field)) {
-            if (pSvcOptions.getEnableHistory())
-            { LockHistoryDao.insert(pMongo, pLockName, pSvcOptions, pLockOptions, serverTime, LockState.LOCKED, lockId, false); }
-            return lockId;
-        }
+        if (lockDoc == null) return null;
+        if (!lockDoc.containsField(LockDef.LOCK_ID.field)) return null;
 
-        // Someone else beat us to the punch.
-        return null;
+        final ObjectId returnedLockId = lockDoc.getObjectId(LockDef.LOCK_ID.field);
+        if (returnedLockId == null) return null;
+        if (!returnedLockId.equals(lockId)) return null;
+
+        if (pSvcOptions.getEnableHistory())
+        { LockHistoryDao.insert(pMongo, pLockName, pSvcOptions, pLockOptions, serverTime, LockState.LOCKED, lockId, false); }
+
+        // Yay... we have the lock.
+        return lockId;
     }
 
     /**
@@ -283,9 +288,10 @@ final class LockDao extends BaseDao {
         query.put(LockDef.LOCK_ID.field, pLockId);
         query.put(LockDef.STATE.field, LockState.LOCKED.code());
 
-        final BasicDBObject lockDoc
-        = (BasicDBObject)getDbCollection(pMongo, pSvcOptions).findAndModify(query, null, null, false, new BasicDBObject(SET, toSet), false, false);
+        // Reset the values in the lock.
+        getDbCollection(pMongo, pSvcOptions).findAndModify(query, null, null, false, new BasicDBObject(SET, toSet), false, false);
 
+        // If history is enabled, log.
         if (pSvcOptions.getEnableHistory())
         { LockHistoryDao.insert(pMongo, pLockName, pSvcOptions, pLockOptions, 0, LockState.UNLOCKED, pLockId, false); }
     }
@@ -293,11 +299,8 @@ final class LockDao extends BaseDao {
     /**
      * Check for expired/inactive/dead locks and unlock.
      */
-    static void expireInactiveLocks(final Mongo pMongo,
-                                    final DistributedLockSvcOptions pSvcOptions)
-    {
-
-        // Adjust the time buffer to  make sure we don't have small time issues.
+    static void expireInactiveLocks(final Mongo pMongo, final DistributedLockSvcOptions pSvcOptions) {
+        // Adjust the time buffer to make sure we do not have small time issues.
         final long queryServerTime = getServerTime(pMongo, pSvcOptions);
 
         final BasicDBObject query = new BasicDBObject(LockDef.STATE.field, LockState.LOCKED.code());
