@@ -199,9 +199,9 @@ final class LockDao extends BaseDao {
 
         // Insert, if successful then get out of here.
         final WriteResult result = getDbCollection(pMongo, pSvcOptions).insert(lockDoc, WriteConcern.NORMAL);
-        final CommandResult cmdResult = result.getLastError();
+        final CommandResult cmdResult = result.getLastError(WriteConcern.NORMAL);
 
-        if (cmdResult.getErrorMessage() != null) return null;
+        if (cmdResult.getException() != null) return null;
 
        if (pSvcOptions.getEnableHistory())
        { LockHistoryDao.insert( pMongo, pLockName, pSvcOptions, pLockOptions, serverTime, LockState.LOCKED, lockId, false); }
