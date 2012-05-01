@@ -56,9 +56,63 @@ public final class DriverIntTests {
         getDb().requestDone();
     }
 
+    @Test public void testFindAndModify() throws Exception {
+
+        final BasicDBObject query = new BasicDBObject("_id", "test");
+
+        final BasicDBObject toSet = new BasicDBObject("locked", true);
+
+        final BasicDBObject lockDoc
+        = (BasicDBObject)getCollection().findAndModify(query, new BasicDBObject("_id", 1), null, false, new BasicDBObject("$set", toSet), false, false);
+
+        assertNull(lockDoc);
+    }
+
+    @Test public void testFindAndModifyWithDoc() throws Exception {
+        final BasicDBObject insert = new BasicDBObject("_id", "test");
+        insert.put("locked", false);
+        insert.put("lockId", "10");
+        getCollection().insert(insert, WriteConcern.SAFE);
+
+
+        final BasicDBObject query = new BasicDBObject("_id", "test");
+        query.put("locked", false);
+        query.put("lockId", "10");
+
+        final BasicDBObject toSet = new BasicDBObject("locked", true);
+        toSet.put("lockId", "20");
+
+        final BasicDBObject lockDoc
+        = (BasicDBObject)getCollection().findAndModify(query, new BasicDBObject("lockId", 1), null, false, new BasicDBObject("$set", toSet), true, false);
+
+        assertNotNull(lockDoc);
+
+        assertEquals("20", lockDoc.getString("lockId"));
+    }
+
+    @Test public void testFindAndModifyWithDocMiss() throws Exception {
+        final BasicDBObject insert = new BasicDBObject("_id", "test");
+        insert.put("locked", false);
+        insert.put("lockId", "10");
+        getCollection().insert(insert, WriteConcern.SAFE);
+
+        final BasicDBObject query = new BasicDBObject("_id", "test");
+        query.put("locked", false);
+        query.put("lockId", "20");
+
+        final BasicDBObject toSet = new BasicDBObject("locked", true);
+        toSet.put("lockId", "20");
+
+        final BasicDBObject lockDoc
+        = (BasicDBObject)getCollection().findAndModify(query, new BasicDBObject("lockId", 1), null, false, new BasicDBObject("$set", toSet), true, false);
+
+        assertNull(lockDoc);
+
+    }
+
     @Before public void init() throws Exception { getDb().dropDatabase(); }
 
-    //@After public void cleanup() { getDb().dropDatabase(); }
+    @After public void cleanup() { getDb().dropDatabase(); }
 
     private DBCollection getCollection() { return getDb().getCollection("test"); }
 
