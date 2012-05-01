@@ -72,7 +72,8 @@ limitations under the License.
         <mkdir dir="${dir.build.java}"/>
         <javac  destdir="${dir.build.java}"
                 target="${build.conf.javac.source}"
-                debug="true" encoding="UTF-8"
+                debug="true"
+                encoding="UTF-8"
                 classpathref="classpath.cp"
                 source="${build.conf.javac.source}"
                 includeantruntime="false"
@@ -92,6 +93,25 @@ limitations under the License.
 
     <target name="jar" depends="clean, unit, compile">
         <mkdir dir="${dir.build}/dist"/>
+
+        <!-- Set the lib version in the class -->
+        <mkdir dir="${dir.build}/tmp"/>
+        <copy file="src/main/com/deftlabs/lock/mongo/DistributedLockSvcOptions.java" tofile="${dir.build}/tmp/DistributedLockSvcOptions.java" filtering="true">
+            <filterset><filter token="LIB_VERSION" value="${build.conf.lib.version}"/></filterset>
+        </copy>
+
+        <javac  destdir="${dir.build.java}"
+                target="${build.conf.javac.source}"
+                debug="true"
+                encoding="UTF-8"
+                classpathref="classpath.cp"
+                source="${build.conf.javac.source}"
+                includeantruntime="false"
+                debuglevel="lines,vars,source">
+            <src path="${dir.build}/tmp"/>
+            <compilerarg value="-Xlint:all,-fallthrough"/>
+            <classpath refid="classpath.all"/>
+        </javac>
 
         <copy file="src/main/META-INF/MANIFEST.MF" tofile="${dir.build}/MANIFEST.MF" filtering="true">
             <filterset><filter token="VERSION" value="${build.conf.lib.version}"/></filterset>
