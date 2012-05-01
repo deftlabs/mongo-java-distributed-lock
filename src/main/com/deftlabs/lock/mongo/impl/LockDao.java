@@ -96,10 +96,12 @@ final class LockDao extends BaseDao {
             // Get the state.
             final LockState lockState = LockState.findByCode(lockDoc.getString(LockDef.STATE.field));
 
+            final ObjectId currentLockId = lockDoc.getObjectId(LockDef.LOCK_ID.field);
+
             // If it is unlocked, then try and lock.
             if (lockState.isUnlocked()) {
                 final ObjectId lockId
-                = tryLockingExisting( pMongo, pLockName, pSvcOptions, pLockOptions, serverTime, startTime);
+                = tryLockingExisting( pMongo, pLockName, currentLockId, pSvcOptions, pLockOptions, serverTime, startTime);
                 if (lockId != null) return lockId;
             }
 
@@ -109,11 +111,13 @@ final class LockDao extends BaseDao {
             incrementLockAttemptCount(pMongo, pLockName, lockId, pSvcOptions);
 
             return null;
+
         } finally { requestDone(pMongo, pSvcOptions); }
     }
 
     private static ObjectId tryLockingExisting( final Mongo pMongo,
                                                 final String pLockName,
+                                                final ObjectId pCurrentLockId,
                                                 final DistributedLockSvcOptions pSvcOptions,
                                                 final DistributedLockOptions pLockOptions,
                                                 final long pServerTime,
@@ -127,6 +131,7 @@ final class LockDao extends BaseDao {
         final ObjectId lockId = ObjectId.get();
 
         final BasicDBObject query = new BasicDBObject(LockDef.ID.field, pLockName);
+        query.put(LockDef.LOCK_ID.field, pCurrentLockId);
         query.put(LockDef.STATE.field, LockState.UNLOCKED.code());
 
         final BasicDBObject toSet = new BasicDBObject();
@@ -151,7 +156,7 @@ final class LockDao extends BaseDao {
 
         if (lockDoc != null && lockDoc.containsField(LockDef.ID.field)) {
             if (pSvcOptions.getEnableHistory())
-            { LockHistoryDao.insert( pMongo, pLockName, pSvcOptions, pLockOptions, serverTime, LockState.LOCKED, lockId, false); }
+            { LockHistoryDao.insert(pMongo, pLockName, pSvcOptions, pLockOptions, serverTime, LockState.LOCKED, lockId, false); }
             return lockId;
         }
 
