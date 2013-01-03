@@ -45,9 +45,9 @@ public final class DistributedLockSvcFactory {
         }
     }
 
-    private static DistributedLockSvc _lockSvc = null;
+    private static volatile DistributedLockSvc _lockSvc = null;
 
     private final DistributedLockSvcOptions _options;
-    private final Object _mutex = new Object();
+    private final static Object _mutex = new Object();
 }
 
