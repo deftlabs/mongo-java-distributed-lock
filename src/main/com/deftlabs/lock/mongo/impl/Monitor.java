@@ -26,6 +26,8 @@ import org.bson.types.ObjectId;
 
 // Java
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * The lock monitors.
@@ -40,8 +42,7 @@ final class Monitor {
      * die unexpectedly (e.g., out of memory) or when they are not stopped properly (e.g., kill -9).
      */
     static class LockHeartbeat implements Runnable {
-        @Override
-        public void run() {
+        @Override public void run() {
             while (_running) {
                 try {
                     for (final String lockName : _locks.keySet()) {
@@ -55,11 +56,9 @@ final class Monitor {
                     }
 
                     Thread.sleep(HEARTBEAT_FREQUENCY);
+
                 } catch (final InterruptedException ie) { break;
-                } catch (final Throwable t) {
-                    t.printStackTrace();
-                    // TOOD: Handle with global logger
-                }
+                } catch (final Throwable t) { LOG.log(Level.SEVERE, t.getMessage(), t); }
             }
         }
 
@@ -87,8 +86,7 @@ final class Monitor {
      * responsible for cleaning up expired locks (based on time since last heartbeat).
      */
     static class LockTimeout implements Runnable {
-        @Override
-        public void run() {
+        @Override public void run() {
             while (_running) {
                 try {
 
@@ -96,10 +94,7 @@ final class Monitor {
 
                     Thread.sleep(CHECK_FREQUENCY);
                 } catch (final InterruptedException ie) { break;
-                } catch (final Throwable t) {
-                    t.printStackTrace();
-                    // TOOD: Handle with global logger
-                }
+                } catch (final Throwable t) { LOG.log(Level.SEVERE, t.getMessage(), t); }
             }
         }
 
@@ -124,8 +119,7 @@ final class Monitor {
      * threads when a lock state changes.
      */
     static class LockUnlocked implements Runnable {
-        @Override
-        public void run() {
+        @Override public void run() {
             while (_running) {
                 try {
                     for (final String lockName : _locks.keySet()) {
@@ -142,10 +136,7 @@ final class Monitor {
 
                     Thread.sleep(FREQUENCY);
                 } catch (final InterruptedException ie) { break;
-                } catch (final Throwable t) {
-                    t.printStackTrace();
-                    // TOOD: Handle with global logger
-                }
+                } catch (final Throwable t) { LOG.log(Level.SEVERE, t.getMessage(), t); }
             }
         }
 
@@ -166,5 +157,7 @@ final class Monitor {
         private final DistributedLockSvcOptions _svcOptions;
         private final Map<String, DistributedLock> _locks;
     }
+
+    private static final Logger LOG = Logger.getLogger("com.deftlabs.lock.mongo.Monitor");
 }
 
