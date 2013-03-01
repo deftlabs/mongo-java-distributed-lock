@@ -17,6 +17,7 @@
 package com.deftlabs.lock.mongo;
 
 // Lib
+
 import com.deftlabs.lock.mongo.impl.SvcImpl;
 
 /**
@@ -25,29 +26,18 @@ import com.deftlabs.lock.mongo.impl.SvcImpl;
 public final class DistributedLockSvcFactory {
 
     public DistributedLockSvcFactory(final DistributedLockSvcOptions pOptions) {
-        _options = pOptions;
+        _options = pOptions.copy();
     }
 
     /**
-     * Returns the global lock service. This method also calls the startup method on the
-     * lock service returned (when it is created).
+     * Returns the lock service for the specific lock options if one exists.
+     * Otherwise if this is the first time these options have been seen, creates
+     * a new lock service implementation.
      */
     public DistributedLockSvc getLockSvc() {
-        if (_lockSvc != null && _lockSvc.isRunning()) return _lockSvc;
-
-        synchronized(_mutex) {
-            if (_lockSvc != null && _lockSvc.isRunning()) return _lockSvc;
-
-            final SvcImpl svc = new SvcImpl(_options);
-            svc.startup();
-            _lockSvc = svc;
-            return _lockSvc;
-        }
+        return SvcImpl.create(_options);
     }
 
-    private static volatile DistributedLockSvc _lockSvc = null;
-
     private final DistributedLockSvcOptions _options;
-    private final static Object _mutex = new Object();
 }
 

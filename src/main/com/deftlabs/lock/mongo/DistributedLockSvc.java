@@ -53,5 +53,9 @@ public interface DistributedLockSvc {
      */
     public boolean isRunning();
 
+    /**
+     * Returns lock service options
+     */
+    public DistributedLockSvcOptions getSvcOptions();
 }
 
