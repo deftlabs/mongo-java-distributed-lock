@@ -28,7 +28,6 @@ import org.bson.types.ObjectId;
 // Java
 import java.util.Queue;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -131,6 +130,16 @@ public class LockImpl implements DistributedLock {
         return locked;
     }
 
+    @Override
+    protected void finalize() throws Throwable {
+        super.finalize();
+
+        // only destroy if not already cleaned up by user
+        synchronized (this) {
+            if ( _running.get() ) { destroy(); }
+        }
+    }
+
     /**
      * Try and lock the distributed lock.
      */
@@ -189,24 +198,28 @@ public class LockImpl implements DistributedLock {
      * Called to initialize the lock.
      */
     synchronized void init() {
-        if (_running.get()) throw new IllegalStateException("init already called");
-        _running.set(true);
+        if (!_running.compareAndSet(false, true)) throw new IllegalStateException("init already called");
     }
 
     /**
      * Called to destroy the lock.
      */
     synchronized void destroy() {
-        if (!_running.get()) throw new IllegalStateException("destroy already called");
-        _running.set(false);
+        if (!_running.compareAndSet(true, false)) throw new IllegalStateException("destroy already called");
         for (final Thread t : _waitingThreads) t.interrupt();
         _waitingThreads.clear();
     }
 
     /**
-     * Returns true if the lock is currently locked.
+     * Returns true if lock's held by this JVM / process.
      */
     @Override public boolean isLocked() { return _locked.get(); }
+
+    /**
+     * Returns true if the lock is currently locked by any process.
+     */
+    @Override public boolean isDistributedLocked()
+    { return isLocked() || LockDao.isLocked(_mongo, _name, _svcOptions); }
 
     /**
      * Returns the lock name.

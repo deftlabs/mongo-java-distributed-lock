@@ -25,7 +25,7 @@ import com.mongodb.Mongo;
 import org.bson.types.ObjectId;
 
 // Java
-import java.util.Map;
+import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -41,8 +41,9 @@ final class Monitor {
      * closed properly (based on the lock/unlock) contract. This can happen when processes
      * die unexpectedly (e.g., out of memory) or when they are not stopped properly (e.g., kill -9).
      */
-    static class LockHeartbeat implements Runnable {
-        @Override public void run() {
+    static class LockHeartbeat extends Thread {
+        @Override
+        public void run() {
             while (_running) {
                 try {
                     for (final String lockName : _locks.keySet()) {
@@ -66,9 +67,11 @@ final class Monitor {
                         final DistributedLockSvcOptions pSvcOptions,
                         final Map<String, DistributedLock> pLocks)
         {
+            super("MongoDistributedLock-Heartbeat-" + pMongo.getConnectPoint());
             _mongo = pMongo;
             _svcOptions = pSvcOptions;
             _locks = pLocks;
+            setDaemon(true);
         }
 
         private static final long HEARTBEAT_FREQUENCY = 5000;
@@ -85,8 +88,9 @@ final class Monitor {
      * timeout thread runs in each process this lock lib is running. This thread is
      * responsible for cleaning up expired locks (based on time since last heartbeat).
      */
-    static class LockTimeout implements Runnable {
-        @Override public void run() {
+    static class LockTimeout extends Thread {
+        @Override
+        public void run() {
             while (_running) {
                 try {
 
@@ -101,8 +105,10 @@ final class Monitor {
         LockTimeout(final Mongo pMongo,
                     final DistributedLockSvcOptions pSvcOptions)
         {
+            super("MongoDistributedLock-LockTimeout-" + pMongo.getConnectPoint());
             _mongo = pMongo;
             _svcOptions = pSvcOptions;
+            setDaemon(true);
         }
 
         private static final long CHECK_FREQUENCY = 60000;
@@ -118,17 +124,15 @@ final class Monitor {
      * The lock unlocked thread is responsible for waking up local
      * threads when a lock state changes.
      */
-    static class LockUnlocked implements Runnable {
-        @Override public void run() {
+    static class LockUnlocked extends Thread {
+        @Override
+        public void run() {
             while (_running) {
                 try {
                     for (final String lockName : _locks.keySet()) {
                         final DistributedLock lock = _locks.get(lockName);
 
-                        if (lock.isLocked()) continue;
-
-                        // Check to see if this is locked.
-                        if (LockDao.isLocked(_mongo, lockName, _svcOptions)) continue;
+                        if (lock.isDistributedLocked()) continue;
 
                         // The lock is not locked, wakeup any blocking threads.
                         lock.wakeupBlocked();
@@ -144,9 +148,11 @@ final class Monitor {
                         final DistributedLockSvcOptions pSvcOptions,
                         final Map<String, DistributedLock> pLocks)
         {
+            super("MongoDistributedLock-LockUnlocked-" + pMongo.getConnectPoint());
             _mongo = pMongo;
             _svcOptions = pSvcOptions;
             _locks = pLocks;
+            setDaemon(true);
         }
 
         private static final long FREQUENCY = 1000;

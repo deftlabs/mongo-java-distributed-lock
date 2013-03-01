@@ -107,6 +107,54 @@ public class DistributedLockSvcOptions {
     public void setHistoryCollectionName(final String pV) { _historyCollectionName = pV; }
     public String getHistoryCollectionName() { return _historyCollectionName; }
 
+    public DistributedLockSvcOptions copy() {
+        DistributedLockSvcOptions copy = new DistributedLockSvcOptions( _mongoUri, _dbName, _collectionName, _appName );
+
+        copy._historyCollectionName = this._historyCollectionName;
+        copy._hostname = this._hostname;
+        copy._hostAddress = this._hostAddress;
+        copy._enableHistory = this._enableHistory;
+        copy._historyIsCapped = this._historyIsCapped;
+        copy._historySize = this._historySize;
+
+        return copy;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if ( this == o ) return true;
+        if ( o == null || getClass() != o.getClass() ) return false;
+
+        DistributedLockSvcOptions that = (DistributedLockSvcOptions) o;
+
+        if ( _appName != null ? !_appName.equals( that._appName ) : that._appName != null ) return false;
+        if ( _collectionName != null ? !_collectionName.equals( that._collectionName ) : that._collectionName != null )
+            return false;
+        if ( _dbName != null ? !_dbName.equals( that._dbName ) : that._dbName != null ) return false;
+        if ( _mongoUri != null ? !_mongoUri.equals( that._mongoUri ) : that._mongoUri != null ) return false;
+
+        return true;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = _mongoUri != null ? _mongoUri.hashCode() : 0;
+        result = 31 * result + ( _dbName != null ? _dbName.hashCode() : 0 );
+        result = 31 * result + ( _collectionName != null ? _collectionName.hashCode() : 0 );
+        result = 31 * result + ( _appName != null ? _appName.hashCode() : 0 );
+        return result;
+    }
+
+    @Override
+    public String toString() {
+        return "DistributedLockSvcOptions{" +
+                "_collectionName='" + _collectionName + '\'' +
+                ", _appName='" + _appName + '\'' +
+                ", _dbName='" + _dbName + '\'' +
+                ", _mongoUri='" + _mongoUri + '\'' +
+                '}';
+    }
+
     private final String _mongoUri;
     private final String _dbName;
     private final String _collectionName;

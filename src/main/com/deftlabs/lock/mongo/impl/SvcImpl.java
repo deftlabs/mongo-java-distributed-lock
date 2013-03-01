@@ -28,6 +28,7 @@ import com.mongodb.Mongo;
 import com.mongodb.MongoURI;
 
 // Java
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
@@ -38,8 +39,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public final class SvcImpl implements DistributedLockSvc {
 
-    public SvcImpl(final DistributedLockSvcOptions pOptions) {
+    private SvcImpl(final DistributedLockSvcOptions pOptions) {
         _options = pOptions;
+    }
+
+    @Override
+    public DistributedLockSvcOptions getSvcOptions() {
+        return _options.copy();
     }
 
     /**
@@ -77,9 +83,8 @@ public final class SvcImpl implements DistributedLockSvc {
 
     @Override
     public void destroy(final DistributedLock pLock) {
+        _lock.lock();
         try {
-            _lock.lock();
-
             if (!_locks.containsKey(pLock.getName()))
             { throw new DistributedLockException("Lock has already been destroyed: " + pLock.getName()); }
 
@@ -97,9 +102,8 @@ public final class SvcImpl implements DistributedLockSvc {
      */
     @Override
     public void startup() {
-        _running.set(true);
+        _lock.lock();
         try {
-            _lock.lock();
 
             _mongo = new Mongo(new MongoURI(_options.getMongoUri()));
 
@@ -109,15 +113,15 @@ public final class SvcImpl implements DistributedLockSvc {
 
             // Init the monitor threads.
             _lockHeartbeat = new Monitor.LockHeartbeat(_mongo, _options, _locks);
-            (new Thread(_lockHeartbeat)).start();
+            _lockHeartbeat.start();
 
             _lockTimeout = new Monitor.LockTimeout(_mongo, _options);
-            (new Thread(_lockTimeout)).start();
+            _lockTimeout.start();
 
             _lockUnlocked = new Monitor.LockUnlocked(_mongo, _options, _locks);
-            (new Thread(_lockUnlocked)).start();
+            _lockUnlocked.start();
 
-
+            _running.set( true );
         } catch (final Throwable t) { throw new DistributedLockException(t);
         } finally { _lock.unlock(); }
     }
@@ -127,12 +131,11 @@ public final class SvcImpl implements DistributedLockSvc {
      */
     @Override
     public void shutdown() {
-
-        if (!_running.get()) throw new IllegalStateException("shutdown called but not running");
-        _running.set(false);
-
+        _lock.lock();
         try {
-            _lock.lock();
+
+            // Performed while holding lock for finalize behavior
+            if (!_running.compareAndSet(true, false)) throw new IllegalStateException("shutdown called but not running");
 
             // Interrupt the locks.
             for (final String lockName : _locks.keySet()) {
@@ -146,8 +149,22 @@ public final class SvcImpl implements DistributedLockSvc {
             _lockHeartbeat.stopRunning();
             _lockUnlocked.stopRunning();
 
+            destroy( _options );
         } catch (final Throwable t) { throw new DistributedLockException(t);
         } finally { _lock.unlock(); }
+    }
+
+    @Override
+    protected void finalize() throws Throwable {
+        super.finalize();
+
+        _lock.lock();
+        try {
+            // only shutdown if not already cleaned up by user
+            if ( _running.get() ) { shutdown(); }
+        } finally {
+            _lock.unlock();
+        }
     }
 
     @Override
@@ -165,6 +182,33 @@ public final class SvcImpl implements DistributedLockSvc {
     private Monitor.LockUnlocked _lockUnlocked;
 
     private final Map<String, DistributedLock> _locks = new ConcurrentHashMap<String, DistributedLock>();
+
+    private static final Map<DistributedLockSvcOptions, DistributedLockSvc> _lockSvcs
+            = new HashMap<DistributedLockSvcOptions, DistributedLockSvc>();
+
+    private static void destroy(final DistributedLockSvcOptions pOptions) {
+        if ( _lockSvcs.remove(pOptions) == null ) {
+            throw new IllegalStateException( "lock service already unregistered for: " + pOptions );
+        }
+    }
+
+    public static DistributedLockSvc create(final DistributedLockSvcOptions pOptions) {
+        DistributedLockSvc svc = _lockSvcs.get(pOptions);
+        if ( svc != null && svc.isRunning() ) { return svc; }
+
+        synchronized(SvcImpl.class) {
+            svc = _lockSvcs.get(pOptions);
+            if ( svc != null && svc.isRunning() ) { return svc; }
+
+            svc = new SvcImpl(pOptions);
+            svc.startup();
+            if ( _lockSvcs.put( pOptions, svc ) != null ) {
+                throw new IllegalStateException( "lock service already registered for: " + pOptions );
+            }
+
+            return svc;
+        }
+    }
 
 }
 

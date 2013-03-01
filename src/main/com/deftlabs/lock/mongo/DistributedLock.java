@@ -28,9 +28,14 @@ import java.util.concurrent.locks.Lock;
 public interface DistributedLock extends Lock {
 
     /**
-     * Returns true if the lock is currently locked by the local process.
+     * Returns true if lock's held by this JVM / process.
      */
     public boolean isLocked();
+
+    /**
+     * Returns true if the lock is currently locked by any process.
+     */
+    public boolean isDistributedLocked();
 
     /**
      * Returns the lock name.
