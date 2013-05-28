@@ -109,13 +109,13 @@ public final class SvcImpl implements DistributedLockSvc {
 
             // Init the monitor threads.
             _lockHeartbeat = new Monitor.LockHeartbeat(_mongo, _options, _locks);
-            (new Thread(_lockHeartbeat)).start();
+            _lockHeartbeat.start();
 
             _lockTimeout = new Monitor.LockTimeout(_mongo, _options);
-            (new Thread(_lockTimeout)).start();
+            _lockTimeout.start();
 
             _lockUnlocked = new Monitor.LockUnlocked(_mongo, _options, _locks);
-            (new Thread(_lockUnlocked)).start();
+            _lockUnlocked.start();
 
 
         } catch (final Throwable t) { throw new DistributedLockException(t);
@@ -138,7 +138,6 @@ public final class SvcImpl implements DistributedLockSvc {
             for (final String lockName : _locks.keySet()) {
                 final DistributedLock lock = _locks.get(lockName);
                 if (lock == null) continue;
-
                 ((LockImpl)lock).destroy();
             }
 
