@@ -3,5 +3,13 @@ language: java
 
 script: 'ant test'
 
+services:
+    - mongodb
+
+jdk:
+    - oraclejdk7
+    - openjdk6
+    - openjdk7
+
 env:
     - DB=mongodb
