@@ -66,7 +66,7 @@ final class Monitor {
                         final DistributedLockSvcOptions pSvcOptions,
                         final Map<String, DistributedLock> pLocks)
         {
-            super();
+            super("Mongo-Distributed-Lock-LockHeartbeat-" + System.currentTimeMillis());
             _mongo = pMongo;
             _svcOptions = pSvcOptions;
             _locks = pLocks;
@@ -106,6 +106,7 @@ final class Monitor {
         LockTimeout(final Mongo pMongo,
                     final DistributedLockSvcOptions pSvcOptions)
         {
+            super("Mongo-Distributed-Lock-LockTimeout-" + System.currentTimeMillis());
             _mongo = pMongo;
             _svcOptions = pSvcOptions;
         }
@@ -153,6 +154,7 @@ final class Monitor {
                         final DistributedLockSvcOptions pSvcOptions,
                         final Map<String, DistributedLock> pLocks)
         {
+            super("Mongo-Distributed-Lock-LockUnlocked-" + System.currentTimeMillis());
             _mongo = pMongo;
             _svcOptions = pSvcOptions;
             _locks = pLocks;
