@@ -92,7 +92,7 @@ final class LockHistoryDao extends BaseDao {
 
         lockDoc.put(LockHistoryDef.TIMED_OUT.field, pTimedOut);
 
-        getDbCollection(pMongo, pSvcOptions).insert(lockDoc);
+        getDbCollection(pMongo, pSvcOptions).insert(lockDoc, WriteConcern.SAFE);
     }
 
     /**
