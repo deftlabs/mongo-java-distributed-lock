@@ -41,7 +41,7 @@ final class Monitor {
      * closed properly (based on the lock/unlock) contract. This can happen when processes
      * die unexpectedly (e.g., out of memory) or when they are not stopped properly (e.g., kill -9).
      */
-    static class LockHeartbeat implements Runnable {
+    static class LockHeartbeat extends Thread {
         @Override public void run() {
             while (_running) {
                 try {
@@ -66,6 +66,7 @@ final class Monitor {
                         final DistributedLockSvcOptions pSvcOptions,
                         final Map<String, DistributedLock> pLocks)
         {
+            super();
             _mongo = pMongo;
             _svcOptions = pSvcOptions;
             _locks = pLocks;
@@ -73,7 +74,11 @@ final class Monitor {
 
         private static final long HEARTBEAT_FREQUENCY = 5000;
 
-        void stopRunning() { _running = false; }
+        void stopRunning() {
+            _running = false;
+            interrupt();
+        }
+
         private volatile boolean _running = true;
         private final Mongo _mongo;
         private final DistributedLockSvcOptions _svcOptions;
@@ -85,7 +90,7 @@ final class Monitor {
      * timeout thread runs in each process this lock lib is running. This thread is
      * responsible for cleaning up expired locks (based on time since last heartbeat).
      */
-    static class LockTimeout implements Runnable {
+    static class LockTimeout extends Thread {
         @Override public void run() {
             while (_running) {
                 try {
@@ -107,7 +112,11 @@ final class Monitor {
 
         private static final long CHECK_FREQUENCY = 60000;
 
-        void stopRunning() { _running = false; }
+        void stopRunning() {
+            _running = false;
+            interrupt();
+        }
+
         private volatile boolean _running = true;
 
         private final Mongo _mongo;
@@ -118,7 +127,7 @@ final class Monitor {
      * The lock unlocked thread is responsible for waking up local
      * threads when a lock state changes.
      */
-    static class LockUnlocked implements Runnable {
+    static class LockUnlocked extends Thread {
         @Override public void run() {
             while (_running) {
                 try {
@@ -151,7 +160,11 @@ final class Monitor {
 
         private static final long FREQUENCY = 1000;
 
-        void stopRunning() { _running = false; }
+        void stopRunning() {
+            _running = false;
+            interrupt();
+        }
+
         private volatile boolean _running = true;
         private final Mongo _mongo;
         private final DistributedLockSvcOptions _svcOptions;
