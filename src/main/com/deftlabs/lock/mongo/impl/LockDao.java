@@ -62,7 +62,7 @@ final class LockDao extends BaseDao {
             final BasicDBObject toSet = new BasicDBObject(LockDef.LAST_HEARTBEAT.field, new Date(serverTime));
             toSet.put(LockDef.LOCK_TIMEOUT_TIME.field, new Date(serverTime + pLockOptions.getInactiveLockTimeout()));
 
-            getDbCollection(pMongo, pSvcOptions).update(query, new BasicDBObject(SET, toSet), false, false);
+            getDbCollection(pMongo, pSvcOptions).update(query, new BasicDBObject(SET, toSet), false, false, WriteConcern.SAFE);
 
         } finally { requestDone(pMongo, pSvcOptions); }
     }
@@ -256,7 +256,7 @@ final class LockDao extends BaseDao {
         query.put(LockDef.LOCK_ID.field, pLockId);
 
         getDbCollection(pMongo, pSvcOptions)
-        .update(query, new BasicDBObject(INC, new BasicDBObject(LockDef.LOCK_ATTEMPT_COUNT.field, 1)), false, false);
+        .update(query, new BasicDBObject(INC, new BasicDBObject(LockDef.LOCK_ATTEMPT_COUNT.field, 1)), false, false, WriteConcern.SAFE);
     }
 
     /**
