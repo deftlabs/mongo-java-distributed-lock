@@ -25,7 +25,8 @@ import com.deftlabs.lock.mongo.DistributedLockException;
 
 // Mongo
 import com.mongodb.Mongo;
-import com.mongodb.MongoURI;
+import com.mongodb.MongoClient;
+import com.mongodb.MongoClientURI;
 
 // Java
 import java.util.Map;
@@ -101,7 +102,7 @@ public final class SvcImpl implements DistributedLockSvc {
         try {
             _lock.lock();
 
-            _mongo = new Mongo(new MongoURI(_options.getMongoUri()));
+            _mongo = new MongoClient(new MongoClientURI(_options.getMongoUri()));
 
             // Init the db/collection.
             LockDao.setup(_mongo, _options);

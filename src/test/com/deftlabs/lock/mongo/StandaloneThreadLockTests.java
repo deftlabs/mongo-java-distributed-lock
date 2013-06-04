@@ -18,9 +18,9 @@ package com.deftlabs.lock.mongo;
 
 // Mongo
 import com.mongodb.Mongo;
-import com.mongodb.MongoURI;
-import com.mongodb.BasicDBObject;
 import com.mongodb.DBCollection;
+import com.mongodb.MongoClient;
+import com.mongodb.MongoClientURI;
 
 // JUnit
 import org.junit.Test;
@@ -112,7 +112,7 @@ public final class StandaloneThreadLockTests {
     { return _mongo.getDB("mongo-distributed-lock").getCollection("lockHistory"); }
 
     private StandaloneThreadLockTests() throws Exception
-    { _mongo = new Mongo(new MongoURI("mongodb://127.0.0.1:27017")); }
+    { _mongo = new MongoClient(new MongoClientURI("mongodb://127.0.0.1:27017")); }
 
     private static final int THREAD_COUNT = 200;
 

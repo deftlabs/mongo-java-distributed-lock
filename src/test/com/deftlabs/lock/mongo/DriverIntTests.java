@@ -19,9 +19,10 @@ package com.deftlabs.lock.mongo;
 // Mongo
 import com.mongodb.DB;
 import com.mongodb.Mongo;
-import com.mongodb.MongoURI;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBCollection;
+import com.mongodb.MongoClient;
+import com.mongodb.MongoClientURI;
 import com.mongodb.WriteConcern;
 import com.mongodb.WriteResult;
 import com.mongodb.CommandResult;
@@ -119,7 +120,7 @@ public final class DriverIntTests {
     private DB getDb() { return _mongo.getDB("mongo-distributed-lock-test"); }
 
     public DriverIntTests() throws Exception {
-        _mongo = new Mongo(new MongoURI("mongodb://127.0.0.1:27017"));
+        _mongo = new MongoClient(new MongoClientURI("mongodb://127.0.0.1:27017"));
     }
 
     private final Mongo _mongo;
