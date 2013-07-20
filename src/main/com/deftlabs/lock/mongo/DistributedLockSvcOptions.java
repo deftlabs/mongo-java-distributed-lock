@@ -102,6 +102,30 @@ public class DistributedLockSvcOptions {
     public String getHostAddress() { return _hostAddress; }
 
     /**
+     * Milliseconds between heartbeat checks.
+     */
+    public long getHeartbeatFrequency() { return _heartbeatFrequency; }
+    public void setHeartbeatFrequency(final long pHeartbeatFrequency) {
+        _heartbeatFrequency = pHeartbeatFrequency;
+    }
+
+    /**
+     * Milliseconds between lock timeout checks.
+     */
+    public long getTimeoutFrequency() { return _timeoutFrequency; }
+    public void setTimeoutFrequency(final long pTimeoutFrequency) {
+        _timeoutFrequency = pTimeoutFrequency;
+    }
+
+    /**
+     * Milliseconds between lock unlocked checks.
+     */
+    public long getLockUnlockedFrequency() { return _lockUnlockedFrequency; }
+    public void setLockUnlockedFrequency(final long pLockUnlockedFrequency) {
+        _lockUnlockedFrequency = pLockUnlockedFrequency;
+    }
+
+    /**
      * The default collection name is: lockHistory. Override here.
      */
     public void setHistoryCollectionName(final String pV) { _historyCollectionName = pV; }
@@ -122,5 +146,9 @@ public class DistributedLockSvcOptions {
     private boolean _enableHistory = true;
     private boolean _historyIsCapped = true;
     private long _historySize = 209715200;
+
+    private long _heartbeatFrequency = 5000;
+    private long _timeoutFrequency = 60000;
+    private long _lockUnlockedFrequency = 1000;
 }
 
