@@ -26,6 +26,8 @@ import org.bson.types.ObjectId;
 
 // Java
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -41,48 +43,29 @@ final class Monitor {
      * closed properly (based on the lock/unlock) contract. This can happen when processes
      * die unexpectedly (e.g., out of memory) or when they are not stopped properly (e.g., kill -9).
      */
-    static class LockHeartbeat extends Thread {
-        @Override public void run() {
-            while (_running) {
-                try {
-                    for (final String lockName : _locks.keySet()) {
-                        final DistributedLock lock = _locks.get(lockName);
+    static class LockHeartbeat extends MonitorThread {
 
-                        final ObjectId lockId = lock.getLockId();
+        LockHeartbeat(final Mongo pMongo,
+                      final DistributedLockSvcOptions pSvcOptions,
+                      final Map<String, DistributedLock> pLocks) {
+            super("Mongo-Distributed-Lock-LockHeartbeat-" + System.currentTimeMillis(),
+                    pMongo, pSvcOptions, pLocks);
+        }
 
-                        if (!lock.isLocked() || lockId == null) continue;
+        @Override
+        boolean monitor() throws InterruptedException {
+            for (final String lockName : _locks.keySet()) {
+                final DistributedLock lock = _locks.get(lockName);
 
-                        LockDao.heartbeat(_mongo, lockName, lockId, lock.getOptions(), _svcOptions);
-                    }
+                final ObjectId lockId = lock.getLockId();
 
-                    Thread.sleep(HEARTBEAT_FREQUENCY);
+                if (!lock.isLocked() || lockId == null) continue;
 
-                } catch (final InterruptedException ie) { break;
-                } catch (final Throwable t) { LOG.log(Level.SEVERE, t.getMessage(), t); }
+                LockDao.heartbeat(_mongo, lockName, lockId, lock.getOptions(), _svcOptions);
             }
+
+            return _shutdown.await(_svcOptions.getHeartbeatFrequency(), TimeUnit.MILLISECONDS);
         }
-
-        LockHeartbeat(  final Mongo pMongo,
-                        final DistributedLockSvcOptions pSvcOptions,
-                        final Map<String, DistributedLock> pLocks)
-        {
-            super("Mongo-Distributed-Lock-LockHeartbeat-" + System.currentTimeMillis());
-            _mongo = pMongo;
-            _svcOptions = pSvcOptions;
-            _locks = pLocks;
-        }
-
-        private static final long HEARTBEAT_FREQUENCY = 5000;
-
-        void stopRunning() {
-            _running = false;
-            interrupt();
-        }
-
-        private volatile boolean _running = true;
-        private final Mongo _mongo;
-        private final DistributedLockSvcOptions _svcOptions;
-        private final Map<String, DistributedLock> _locks;
     }
 
     /**
@@ -90,87 +73,103 @@ final class Monitor {
      * timeout thread runs in each process this lock lib is running. This thread is
      * responsible for cleaning up expired locks (based on time since last heartbeat).
      */
-    static class LockTimeout extends Thread {
-        @Override public void run() {
-            while (_running) {
-                try {
+    static class LockTimeout extends MonitorThread {
 
-                    LockDao.expireInactiveLocks(_mongo, _svcOptions);
-
-                    Thread.sleep(CHECK_FREQUENCY);
-                } catch (final InterruptedException ie) { break;
-                } catch (final Throwable t) { LOG.log(Level.SEVERE, t.getMessage(), t); }
-            }
+        LockTimeout(final Mongo pMongo, final DistributedLockSvcOptions pSvcOptions) {
+            super("Mongo-Distributed-Lock-LockTimeout-" + System.currentTimeMillis(), pMongo, pSvcOptions);
         }
 
-        LockTimeout(final Mongo pMongo,
-                    final DistributedLockSvcOptions pSvcOptions)
-        {
-            super("Mongo-Distributed-Lock-LockTimeout-" + System.currentTimeMillis());
-            _mongo = pMongo;
-            _svcOptions = pSvcOptions;
+        @Override
+        boolean monitor() throws InterruptedException {
+            LockDao.expireInactiveLocks(_mongo, _svcOptions);
+            return _shutdown.await(_svcOptions.getTimeoutFrequency(), TimeUnit.MILLISECONDS);
         }
-
-        private static final long CHECK_FREQUENCY = 60000;
-
-        void stopRunning() {
-            _running = false;
-            interrupt();
-        }
-
-        private volatile boolean _running = true;
-
-        private final Mongo _mongo;
-        private final DistributedLockSvcOptions _svcOptions;
     }
 
     /**
      * The lock unlocked thread is responsible for waking up local
      * threads when a lock state changes.
      */
-    static class LockUnlocked extends Thread {
-        @Override public void run() {
-            while (_running) {
-                try {
-                    for (final String lockName : _locks.keySet()) {
-                        final DistributedLock lock = _locks.get(lockName);
+    static class LockUnlocked extends MonitorThread {
 
-                        if (lock.isLocked()) continue;
-
-                        // Check to see if this is locked.
-                        if (LockDao.isLocked(_mongo, lockName, _svcOptions)) continue;
-
-                        // The lock is not locked, wakeup any blocking threads.
-                        lock.wakeupBlocked();
-                    }
-
-                    Thread.sleep(FREQUENCY);
-                } catch (final InterruptedException ie) { break;
-                } catch (final Throwable t) { LOG.log(Level.SEVERE, t.getMessage(), t); }
-            }
+        LockUnlocked(final Mongo pMongo,
+                     final DistributedLockSvcOptions pSvcOptions,
+                     final Map<String, DistributedLock> pLocks) {
+            super("Mongo-Distributed-Lock-LockUnlocked-" + System.currentTimeMillis(),
+                    pMongo, pSvcOptions, pLocks);
         }
 
-        LockUnlocked(   final Mongo pMongo,
-                        final DistributedLockSvcOptions pSvcOptions,
-                        final Map<String, DistributedLock> pLocks)
-        {
-            super("Mongo-Distributed-Lock-LockUnlocked-" + System.currentTimeMillis());
+        @Override
+        boolean monitor() throws InterruptedException {
+            for (final String lockName : _locks.keySet()) {
+                final DistributedLock lock = _locks.get(lockName);
+
+                if (lock.isLocked()) continue;
+
+                // Check to see if this is locked.
+                if (LockDao.isLocked(_mongo, lockName, _svcOptions)) continue;
+
+                // The lock is not locked, wakeup any blocking threads.
+                lock.wakeupBlocked();
+            }
+
+            return _shutdown.await(_svcOptions.getLockUnlockedFrequency(), TimeUnit.MILLISECONDS);
+        }
+    }
+
+
+    private static abstract class MonitorThread extends Thread {
+
+        MonitorThread(final String pName,
+                      final Mongo pMongo,
+                      final DistributedLockSvcOptions pSvcOptions) {
+            this(pName, pMongo, pSvcOptions, null);
+        }
+
+        MonitorThread(final String pName,
+                      final Mongo pMongo,
+                      final DistributedLockSvcOptions pSvcOptions,
+                      final Map<String, DistributedLock> pLocks) {
+            super(pName);
             _mongo = pMongo;
             _svcOptions = pSvcOptions;
             _locks = pLocks;
+            _shutdown = new CountDownLatch(1);
+            _exited = new CountDownLatch(1);
+            setDaemon(true);
         }
 
-        private static final long FREQUENCY = 1000;
-
-        void stopRunning() {
-            _running = false;
-            interrupt();
+        @Override public void run() {
+            boolean shutdown = false;
+            try {
+                while (!shutdown) {
+                    try { shutdown = monitor();
+                    } catch (final InterruptedException ie) { break;
+                    } catch (final Throwable t) { LOG.log(Level.SEVERE, t.getMessage(), t); }
+                }
+            } finally {
+                _exited.countDown();
+            }
         }
 
-        private volatile boolean _running = true;
-        private final Mongo _mongo;
-        private final DistributedLockSvcOptions _svcOptions;
-        private final Map<String, DistributedLock> _locks;
+        /**
+         * Performs check and awaits shutdown signal for configured amount of milliseconds
+         * @return true if shutdown() was called, false otherwise.
+         */
+        abstract boolean monitor() throws InterruptedException;
+
+        void shutdown() throws InterruptedException {
+            _shutdown.countDown();
+            if (!_exited.await(10000, TimeUnit.MILLISECONDS)) {
+                this.interrupt();
+            }
+        }
+
+        final Mongo _mongo;
+        final DistributedLockSvcOptions _svcOptions;
+        final Map<String, DistributedLock> _locks;
+        final CountDownLatch _shutdown;
+        final CountDownLatch _exited;
     }
 
     private static final Logger LOG = Logger.getLogger("com.deftlabs.lock.mongo.Monitor");
