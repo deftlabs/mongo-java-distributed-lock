@@ -48,11 +48,11 @@ public final class SvcImpl implements DistributedLockSvc {
      */
     @Override
     public DistributedLock create(  final String pLockName,
-                                    final DistributedLockOptions pLockOptions)
-    {
-        try {
-            _lock.lock();
+                                    final DistributedLockOptions pLockOptions) {
+        if ( !isRunning() ) throw new IllegalStateException("cannot create lock when service not running");
 
+        _lock.lock();
+        try {
             if (_locks.containsKey(pLockName)) return _locks.get(pLockName);
 
             final LockImpl lock = new LockImpl(_mongo, pLockName, pLockOptions, _options);
@@ -77,9 +77,8 @@ public final class SvcImpl implements DistributedLockSvc {
 
     @Override
     public void destroy(final DistributedLock pLock) {
+        _lock.lock();
         try {
-            _lock.lock();
-
             if (!_locks.containsKey(pLock.getName()))
             { throw new DistributedLockException("Lock has already been destroyed: " + pLock.getName()); }
 
@@ -97,10 +96,10 @@ public final class SvcImpl implements DistributedLockSvc {
      */
     @Override
     public void startup() {
-        _running.set(true);
-        try {
-            _lock.lock();
+        if (!_running.compareAndSet(false, true)) throw new IllegalStateException("startup called but already running");
 
+        _lock.lock();
+        try {
             _mongo = new Mongo(new MongoURI(_options.getMongoUri()));
 
             // Init the db/collection.
@@ -127,13 +126,10 @@ public final class SvcImpl implements DistributedLockSvc {
      */
     @Override
     public void shutdown() {
+        if (!_running.compareAndSet(true, false)) throw new IllegalStateException("shutdown called but not running");
 
-        if (!_running.get()) throw new IllegalStateException("shutdown called but not running");
-        _running.set(false);
-
+        _lock.lock();
         try {
-            _lock.lock();
-
             // Interrupt the locks.
             for (final String lockName : _locks.keySet()) {
                 final DistributedLock lock = _locks.get(lockName);
@@ -141,10 +137,12 @@ public final class SvcImpl implements DistributedLockSvc {
                 ((LockImpl)lock).destroy();
             }
 
-            _lockTimeout.stopRunning();
-            _lockHeartbeat.stopRunning();
-            _lockUnlocked.stopRunning();
+            _lockTimeout.shutdown();
+            _lockHeartbeat.shutdown();
+            _lockUnlocked.shutdown();
 
+            _locks.clear();
+            _mongo.close();
         } catch (final Throwable t) { throw new DistributedLockException(t);
         } finally { _lock.unlock(); }
     }
