@@ -159,7 +159,7 @@ final class Monitor {
                         LOG.log(Level.SEVERE, t.getMessage(), t);
                     }
                 } while (!_shutdown.await(awaitMillis(), TimeUnit.MILLISECONDS));
-            } catch (InterruptedException ignored) {
+            } catch (final InterruptedException ignored) {
                 // Safe exit.
                 Thread.currentThread().interrupt();
             } finally {
