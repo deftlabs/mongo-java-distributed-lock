@@ -179,9 +179,9 @@ public class LockImpl implements DistributedLock {
     }
 
     @Override public void unlock() {
-        LockDao.unlock(_mongo, _name, _svcOptions, _lockOptions, _lockId);
         _locked.set(false);
         _lockId = null;
+        LockDao.unlock(_mongo, _name, _svcOptions, _lockOptions, _lockId);
         LockSupport.unpark(_waitingThreads.peek());
     }
 
