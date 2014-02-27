@@ -180,9 +180,12 @@ public class LockImpl implements DistributedLock {
 
     @Override public void unlock() {
         _locked.set(false);
-        _lockId = null;
-        LockDao.unlock(_mongo, _name, _svcOptions, _lockOptions, _lockId);
-        LockSupport.unpark(_waitingThreads.peek());
+        try {
+            LockDao.unlock(_mongo, _name, _svcOptions, _lockOptions, _lockId);
+        } finally {
+            _lockId = null;
+            LockSupport.unpark(_waitingThreads.peek());
+        }
     }
 
     /**
