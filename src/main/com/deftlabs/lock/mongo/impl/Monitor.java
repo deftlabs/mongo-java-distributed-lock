@@ -53,7 +53,7 @@ final class Monitor {
         }
 
         @Override
-        boolean monitor() throws InterruptedException {
+        void monitor() {
             for (final String lockName : _locks.keySet()) {
                 final DistributedLock lock = _locks.get(lockName);
 
@@ -63,8 +63,11 @@ final class Monitor {
 
                 LockDao.heartbeat(_mongo, lockName, lockId, lock.getOptions(), _svcOptions);
             }
+        }
 
-            return _shutdown.await(_svcOptions.getHeartbeatFrequency(), TimeUnit.MILLISECONDS);
+        @Override
+        long awaitMillis() {
+            return _svcOptions.getHeartbeatFrequency();
         }
     }
 
@@ -80,9 +83,13 @@ final class Monitor {
         }
 
         @Override
-        boolean monitor() throws InterruptedException {
+        void monitor() {
             LockDao.expireInactiveLocks(_mongo, _svcOptions);
-            return _shutdown.await(_svcOptions.getTimeoutFrequency(), TimeUnit.MILLISECONDS);
+        }
+
+        @Override
+        long awaitMillis() {
+            return _svcOptions.getTimeoutFrequency();
         }
     }
 
@@ -100,7 +107,7 @@ final class Monitor {
         }
 
         @Override
-        boolean monitor() throws InterruptedException {
+        void monitor() {
             for (final String lockName : _locks.keySet()) {
                 final DistributedLock lock = _locks.get(lockName);
 
@@ -112,8 +119,11 @@ final class Monitor {
                 // The lock is not locked, wakeup any blocking threads.
                 lock.wakeupBlocked();
             }
+        }
 
-            return _shutdown.await(_svcOptions.getLockUnlockedFrequency(), TimeUnit.MILLISECONDS);
+        @Override
+        long awaitMillis() {
+            return _svcOptions.getLockUnlockedFrequency();
         }
     }
 
@@ -140,13 +150,18 @@ final class Monitor {
         }
 
         @Override public void run() {
-            boolean shutdown = false;
             try {
-                while (!shutdown) {
-                    try { shutdown = monitor();
-                    } catch (final InterruptedException ie) { break;
-                    } catch (final Throwable t) { LOG.log(Level.SEVERE, t.getMessage(), t); }
-                }
+                // do-while to eagerly try at startup for any initial cleanup.
+                do {
+                    try {
+                        monitor();
+                    } catch (final Throwable t) {
+                        LOG.log(Level.SEVERE, t.getMessage(), t);
+                    }
+                } while (!_shutdown.await(awaitMillis(), TimeUnit.MILLISECONDS));
+            } catch (final InterruptedException ignored) {
+                // Safe exit.
+                Thread.currentThread().interrupt();
             } finally {
                 _exited.countDown();
             }
@@ -156,7 +171,9 @@ final class Monitor {
          * Performs check and awaits shutdown signal for configured amount of milliseconds
          * @return true if shutdown() was called, false otherwise.
          */
-        abstract boolean monitor() throws InterruptedException;
+        abstract void monitor();
+
+        abstract long awaitMillis();
 
         void shutdown() throws InterruptedException {
             _shutdown.countDown();
@@ -168,8 +185,8 @@ final class Monitor {
         final Mongo _mongo;
         final DistributedLockSvcOptions _svcOptions;
         final Map<String, DistributedLock> _locks;
-        final CountDownLatch _shutdown;
-        final CountDownLatch _exited;
+        private final CountDownLatch _shutdown;
+        private final CountDownLatch _exited;
     }
 
     private static final Logger LOG = Logger.getLogger("com.deftlabs.lock.mongo.Monitor");
