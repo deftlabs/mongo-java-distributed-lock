@@ -1,0 +1,85 @@
+<project>
+
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>com.deftlabs</groupId>
+    <artifactId>mongo-java-distributed-lock</artifactId>
+    <packaging>jar</packaging>
+    <name>Mongo Java Distributed Lock</name>
+    <version>0.1.7</version>
+    <description>A distributed lock backed by MongoDB</description>
+    <url>https://deftlabs.com</url>
+
+    <licenses>
+        <license>
+            <name>The Apache Software License, Version 2.0</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <scm>
+        <url>https://github.com/deftlabs</url>
+    </scm>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.mongodb</groupId>
+            <artifactId>mongo-java-driver</artifactId>
+            <version>[3.2.0,)</version>
+        </dependency>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.12</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <version>3.4.0</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>1.8</source>
+                    <target>1.8</target>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>com.google.code.maven-replacer-plugin</groupId>
+                <artifactId>replacer</artifactId>
+                <version>1.5.3</version>
+                <executions>
+                    <execution>
+                        <phase>process-sources</phase>
+                        <goals>
+                            <goal>replace</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <ignoreMissingFile>true</ignoreMissingFile>
+                    <file>src/main/java/com/deftlabs/lock/mongo/DistributedLockSvcOptions.java</file>
+                    <outputFile>src/main/java/com/deftlabs/lock/mongo/DistributedLockSvcOptions.java</outputFile>
+                    <regex>false</regex>
+                    <token>@LIB_VERSION@</token>
+                    <value>${project.version}</value>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <developers>
+        <developer>
+            <name>Ryan Nitz</name>
+            <organization>Deft Labs</organization>
+        </developer>
+    </developers>
+
+</project>

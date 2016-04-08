@@ -17,21 +17,16 @@
 package com.deftlabs.lock.mongo;
 
 // Mongo
-import com.mongodb.Mongo;
-import com.mongodb.MongoURI;
-import com.mongodb.BasicDBObject;
-import com.mongodb.DBCollection;
 
-// JUnit
-import org.junit.Test;
-import org.junit.Before;
-import org.junit.After;
-import static org.junit.Assert.*;
+import com.mongodb.*;
+import com.mongodb.client.MongoCollection;
+import org.bson.Document;
 
-// Java
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
+
+// JUnit
+// Java
 
 
 /**
@@ -96,7 +91,7 @@ public final class StandaloneThreadLockTests {
             }
 
             final long execTime = System.currentTimeMillis() - startTime;
-
+            
             _countDownLatch.countDown();
         }
 
@@ -112,7 +107,7 @@ public final class StandaloneThreadLockTests {
     { return _mongo.getDB("mongo-distributed-lock").getCollection("lockHistory"); }
 
     private StandaloneThreadLockTests() throws Exception
-    { _mongo = new Mongo(new MongoURI("mongodb://127.0.0.1:27017")); }
+    { _mongo = new MongoClient(new MongoClientURI("mongodb://127.0.0.1:27017")); }
 
     private static final int THREAD_COUNT = 200;
 
@@ -121,10 +116,9 @@ public final class StandaloneThreadLockTests {
     public static void main(final String [] pArgs) throws Exception {
         final StandaloneThreadLockTests tests = new StandaloneThreadLockTests();
         tests.test();
-
     }
 
-    private final Mongo _mongo;
+    private final MongoClient _mongo;
 
 }
 

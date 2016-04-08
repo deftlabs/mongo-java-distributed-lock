@@ -17,6 +17,8 @@
 package com.deftlabs.lock.mongo;
 
 // Java
+import com.mongodb.MongoClient;
+
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 
@@ -35,7 +37,8 @@ public class DistributedLockSvcOptions {
      *
      */
     public DistributedLockSvcOptions(final String pMongoUri)
-    { this(pMongoUri, "mongo-distributed-lock", "locks", null); }
+    { this(pMongoUri, "mongo-distributed-lock", "locks", null);
+    }
 
     /**
      * Constructor that allows the user to specify database and colleciton name.
@@ -43,7 +46,8 @@ public class DistributedLockSvcOptions {
     public DistributedLockSvcOptions(   final String pMongoUri,
                                         final String pDbName,
                                         final String pCollectionName)
-    { this(pMongoUri, pDbName, pCollectionName, null); }
+    { this(pMongoUri, pDbName, pCollectionName, null);
+    }
 
     /**
      * Constructor that allows the user to specify database, colleciton and app name.
@@ -65,8 +69,54 @@ public class DistributedLockSvcOptions {
 
         try { _hostname = InetAddress.getLocalHost().getHostName();
         } catch (final UnknownHostException e) { _hostname = null; }
+        _mongoClient = null;
     }
 
+    /**
+     * The basic constructor. This uses the following:<br />
+     * <ul>
+     * <li>database name: mongo-distributed-lock
+     * <li>collection name: locks
+     * </ul>
+     *
+     */
+    public DistributedLockSvcOptions(final MongoClient pMongoClient)
+    { this(pMongoClient, "mongo-distributed-lock", "locks", null);
+    }
+
+    /**
+     * Constructor that allows the user to specify database and colleciton name.
+     */
+    public DistributedLockSvcOptions(   final MongoClient pMongoClient,
+                                        final String pDbName,
+                                        final String pCollectionName)
+    { this(pMongoClient, pDbName, pCollectionName, null);
+        }
+
+    /**
+     * Constructor that allows the user to specify database, colleciton and app name.
+     * The app name should definetly be used if the db/collection names are shared by multiple
+     * apps/systems (e.g., SomeCoolDataProcessor).
+     */
+    public DistributedLockSvcOptions(   final MongoClient pMongoClient,
+                                        final String pDbName,
+                                        final String pCollectionName,
+                                        final String pAppName)
+    {
+        _mongoClient = pMongoClient;
+        _dbName = pDbName;
+        _collectionName = pCollectionName;
+        _appName = pAppName;
+
+        try { _hostAddress = InetAddress.getLocalHost().getHostAddress();
+        } catch (final UnknownHostException e) { _hostAddress = null; }
+
+        try { _hostname = InetAddress.getLocalHost().getHostName();
+        } catch (final UnknownHostException e) { _hostname = null; }
+        _mongoUri = null;
+    }
+
+    public MongoClient getMongoClient() { return _mongoClient; }
     public String getMongoUri() { return _mongoUri; }
     public String getDbName() { return _dbName; }
     public String getCollectionName() { return _collectionName; }
@@ -131,6 +181,7 @@ public class DistributedLockSvcOptions {
     public void setHistoryCollectionName(final String pV) { _historyCollectionName = pV; }
     public String getHistoryCollectionName() { return _historyCollectionName; }
 
+    private final MongoClient _mongoClient;
     private final String _mongoUri;
     private final String _dbName;
     private final String _collectionName;

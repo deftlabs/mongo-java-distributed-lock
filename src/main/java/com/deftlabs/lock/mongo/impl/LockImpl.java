@@ -23,6 +23,7 @@ import com.deftlabs.lock.mongo.DistributedLockSvcOptions;
 
 // Mongo
 import com.mongodb.Mongo;
+import com.mongodb.MongoClient;
 import org.bson.types.ObjectId;
 
 // Java
@@ -42,7 +43,7 @@ public class LockImpl implements DistributedLock {
     /**
      * Construct the object with params.
      */
-    LockImpl(   final Mongo pMongo,
+    LockImpl(   final MongoClient pMongo,
                 final String pName,
                 final DistributedLockOptions pLockOptions,
                 final DistributedLockSvcOptions pSvcOptions)
@@ -141,6 +142,7 @@ public class LockImpl implements DistributedLock {
 
         if (lockId == null) return false;
 
+
         _locked.set(true);
         _lockId = lockId;
         return true;
@@ -162,15 +164,7 @@ public class LockImpl implements DistributedLock {
      * Does not block. Returns right away if not able to lock.
      */
     @Override public boolean tryLock() {
-        if (isLocked()) return false;
-
-        final ObjectId lockId = LockDao.lock(_mongo, _name, _svcOptions, _lockOptions);
-
-        if (lockId == null) return false;
-
-        _locked.set(true);
-        _lockId = lockId;
-        return true;
+        return tryDistributedLock();
     }
 
     @Override public boolean tryLock(final long pTime, final TimeUnit pTimeUnit) {
@@ -227,7 +221,7 @@ public class LockImpl implements DistributedLock {
     @Override public void wakeupBlocked() { LockSupport.unpark(_waitingThreads.peek()); }
 
     private final String _name;
-    private final Mongo _mongo;
+    private final MongoClient _mongo;
     private final DistributedLockOptions _lockOptions;
     private final DistributedLockSvcOptions _svcOptions;
 

@@ -17,25 +17,27 @@
 package com.deftlabs.lock.mongo;
 
 // Mongo
-import com.mongodb.Mongo;
-import com.mongodb.MongoURI;
+
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBCollection;
-
-// JUnit
-import org.junit.Test;
-import org.junit.Before;
+import com.mongodb.MongoClient;
+import com.mongodb.MongoClientURI;
 import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+
+import java.util.concurrent.TimeUnit;
+
 import static org.junit.Assert.*;
 
+// JUnit
 // Java
-import java.util.concurrent.TimeUnit;
 
 /**
  * Test the distributed lock. You must be running mongo on localhost:27017 for this
  * test to work.
  */
-public final class DistributedLockIntTests {
+public final class DistributedLockIntTest {
 
     @Test
     public void testSimpleCreate() throws Exception {
@@ -106,7 +108,8 @@ public final class DistributedLockIntTests {
             DistributedLock lock = null;
             try {
                 lock = lockSvc.create("testLock");
-                try { assertEquals(true, lock.tryLock(0, TimeUnit.SECONDS));
+                try {
+                    assertTrue(lock.tryLock(0, TimeUnit.SECONDS));
                 } finally { lock.unlock();  }
             } finally { if (lock != null) lockSvc.destroy(lock); }
         } finally { lockSvc.shutdown(); }
@@ -184,11 +187,11 @@ public final class DistributedLockIntTests {
     private DBCollection getHistoryCollection()
     { return _mongo.getDB("mongo-distributed-lock").getCollection("lockHistory"); }
 
-    public DistributedLockIntTests() throws Exception {
-        _mongo = new Mongo(new MongoURI("mongodb://127.0.0.1:27017"));
+    public DistributedLockIntTest() throws Exception {
+        _mongo = new MongoClient(new MongoClientURI("mongodb://127.0.0.1:27017"));
     }
 
-    private final Mongo _mongo;
+    private final MongoClient _mongo;
 
 }
 

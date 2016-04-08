@@ -17,43 +17,30 @@
 package com.deftlabs.lock.mongo;
 
 // Mongo
-import com.mongodb.DB;
-import com.mongodb.Mongo;
-import com.mongodb.MongoURI;
-import com.mongodb.BasicDBObject;
-import com.mongodb.DBCollection;
-import com.mongodb.WriteConcern;
-import com.mongodb.WriteResult;
-import com.mongodb.CommandResult;
+
+import com.mongodb.*;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 // JUnit
-import org.junit.Test;
-import org.junit.Before;
-import org.junit.After;
-import static org.junit.Assert.*;
-
 // Java
-import java.util.concurrent.TimeUnit;
 
 /**
  * Test assumptions about the java driver for mongo.
  */
-public final class DriverIntTests {
+public final class DriverIntTest {
 
     @Test public void testWriteConcerns() throws Exception {
         final BasicDBObject doc = new BasicDBObject("_id", "test");
 
-        getDb().requestStart();
-        getCollection().insert(doc, WriteConcern.NORMAL);
+        getCollection().insert(doc, WriteConcern.UNACKNOWLEDGED);
 
-        final WriteResult result = getCollection().insert(doc, WriteConcern.NORMAL);
-        final CommandResult cmdResult = result.getLastError(WriteConcern.NORMAL);
-
-        assertTrue(cmdResult.getException() != null);
-
-        //System.out.println(cmdResult);
-
-        getDb().requestDone();
+        assertThatExceptionOfType(DuplicateKeyException.class)
+                .isThrownBy(() -> getCollection().insert(doc, WriteConcern.ACKNOWLEDGED));
     }
 
     @Test public void testFindAndModify() throws Exception {
@@ -65,14 +52,14 @@ public final class DriverIntTests {
         final BasicDBObject lockDoc
         = (BasicDBObject)getCollection().findAndModify(query, new BasicDBObject("_id", 1), null, false, new BasicDBObject("$set", toSet), false, false);
 
-        assertNull(lockDoc);
+        assertThat(lockDoc).isNull();
     }
 
     @Test public void testFindAndModifyWithDoc() throws Exception {
         final BasicDBObject insert = new BasicDBObject("_id", "test");
         insert.put("locked", false);
         insert.put("lockId", "10");
-        getCollection().insert(insert, WriteConcern.SAFE);
+        getCollection().insert(insert, WriteConcern.ACKNOWLEDGED);
 
 
         final BasicDBObject query = new BasicDBObject("_id", "test");
@@ -85,16 +72,15 @@ public final class DriverIntTests {
         final BasicDBObject lockDoc
         = (BasicDBObject)getCollection().findAndModify(query, new BasicDBObject("lockId", 1), null, false, new BasicDBObject("$set", toSet), true, false);
 
-        assertNotNull(lockDoc);
-
-        assertEquals("20", lockDoc.getString("lockId"));
+        assertThat(lockDoc).isNotNull();
+        assertThat(lockDoc.getString("lockId")).isEqualTo("20");
     }
 
     @Test public void testFindAndModifyWithDocMiss() throws Exception {
         final BasicDBObject insert = new BasicDBObject("_id", "test");
         insert.put("locked", false);
         insert.put("lockId", "10");
-        getCollection().insert(insert, WriteConcern.SAFE);
+        getCollection().insert(insert, WriteConcern.ACKNOWLEDGED);
 
         final BasicDBObject query = new BasicDBObject("_id", "test");
         query.put("locked", false);
@@ -106,7 +92,7 @@ public final class DriverIntTests {
         final BasicDBObject lockDoc
         = (BasicDBObject)getCollection().findAndModify(query, new BasicDBObject("lockId", 1), null, false, new BasicDBObject("$set", toSet), true, false);
 
-        assertNull(lockDoc);
+        assertThat(lockDoc).isNull();
 
     }
 
@@ -118,11 +104,11 @@ public final class DriverIntTests {
 
     private DB getDb() { return _mongo.getDB("mongo-distributed-lock-test"); }
 
-    public DriverIntTests() throws Exception {
-        _mongo = new Mongo(new MongoURI("mongodb://127.0.0.1:27017"));
+    public DriverIntTest() throws Exception {
+        _mongo = new MongoClient(new MongoClientURI("mongodb://127.0.0.1:27017"));
     }
 
-    private final Mongo _mongo;
+    private final MongoClient _mongo;
 
 }
 

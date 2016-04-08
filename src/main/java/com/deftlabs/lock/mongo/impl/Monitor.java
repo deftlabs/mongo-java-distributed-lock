@@ -22,6 +22,7 @@ import com.deftlabs.lock.mongo.DistributedLockSvcOptions;
 
 // Mongo
 import com.mongodb.Mongo;
+import com.mongodb.MongoClient;
 import org.bson.types.ObjectId;
 
 // Java
@@ -45,7 +46,7 @@ final class Monitor {
      */
     static class LockHeartbeat extends MonitorThread {
 
-        LockHeartbeat(final Mongo pMongo,
+        LockHeartbeat(final MongoClient pMongo,
                       final DistributedLockSvcOptions pSvcOptions,
                       final Map<String, DistributedLock> pLocks) {
             super("Mongo-Distributed-Lock-LockHeartbeat-" + System.currentTimeMillis(),
@@ -75,7 +76,7 @@ final class Monitor {
      */
     static class LockTimeout extends MonitorThread {
 
-        LockTimeout(final Mongo pMongo, final DistributedLockSvcOptions pSvcOptions) {
+        LockTimeout(final MongoClient pMongo, final DistributedLockSvcOptions pSvcOptions) {
             super("Mongo-Distributed-Lock-LockTimeout-" + System.currentTimeMillis(), pMongo, pSvcOptions);
         }
 
@@ -92,7 +93,7 @@ final class Monitor {
      */
     static class LockUnlocked extends MonitorThread {
 
-        LockUnlocked(final Mongo pMongo,
+        LockUnlocked(final MongoClient pMongo,
                      final DistributedLockSvcOptions pSvcOptions,
                      final Map<String, DistributedLock> pLocks) {
             super("Mongo-Distributed-Lock-LockUnlocked-" + System.currentTimeMillis(),
@@ -121,13 +122,13 @@ final class Monitor {
     private static abstract class MonitorThread extends Thread {
 
         MonitorThread(final String pName,
-                      final Mongo pMongo,
+                      final MongoClient pMongo,
                       final DistributedLockSvcOptions pSvcOptions) {
             this(pName, pMongo, pSvcOptions, null);
         }
 
         MonitorThread(final String pName,
-                      final Mongo pMongo,
+                      final MongoClient pMongo,
                       final DistributedLockSvcOptions pSvcOptions,
                       final Map<String, DistributedLock> pLocks) {
             super(pName);
@@ -165,7 +166,7 @@ final class Monitor {
             }
         }
 
-        final Mongo _mongo;
+        final MongoClient _mongo;
         final DistributedLockSvcOptions _svcOptions;
         final Map<String, DistributedLock> _locks;
         final CountDownLatch _shutdown;
