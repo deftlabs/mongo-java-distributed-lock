@@ -21,13 +21,7 @@ import com.deftlabs.lock.mongo.DistributedLockOptions;
 import com.deftlabs.lock.mongo.DistributedLockSvcOptions;
 
 // Mongo
-import com.mongodb.Mongo;
-import com.mongodb.DB;
-import com.mongodb.DBCollection;
-import com.mongodb.BasicDBObject;
-import com.mongodb.WriteResult;
-import com.mongodb.WriteConcern;
-import com.mongodb.CommandResult;
+import com.mongodb.*;
 import org.bson.types.ObjectId;
 
 // Java
@@ -37,19 +31,10 @@ import java.util.Date;
  * The base dao.
  */
 abstract class BaseDao {
-
-    protected final static void requestStart(   final Mongo pMongo,
-                                                final DistributedLockSvcOptions pSvcOptions)
-    { getDb(pMongo, pSvcOptions).requestStart(); }
-
-    protected final static void requestDone(final Mongo pMongo,
-                                            final DistributedLockSvcOptions pSvcOptions)
-    { getDb(pMongo, pSvcOptions).requestDone(); }
-
     /**
      * Returns the db.
      */
-    protected final static DB getDb(final Mongo pMongo,
+    protected final static DB getDb(final MongoClient pMongo,
                                     final DistributedLockSvcOptions pSvcOptions)
     { return pMongo.getDB(pSvcOptions.getDbName()); }
 
@@ -57,7 +42,7 @@ abstract class BaseDao {
      * Returns the current server time. This makes a few requests to the server to try and adjust for
      * network latency.
      */
-    protected final static long getServerTime(  final Mongo pMongo,
+    protected final static long getServerTime(  final MongoClient pMongo,
                                                 final DistributedLockSvcOptions pSvcOptions)
     {
 

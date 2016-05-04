@@ -21,13 +21,7 @@ import com.deftlabs.lock.mongo.DistributedLockOptions;
 import com.deftlabs.lock.mongo.DistributedLockSvcOptions;
 
 // Mongo
-import com.mongodb.Mongo;
-import com.mongodb.DB;
-import com.mongodb.DBCollection;
-import com.mongodb.BasicDBObject;
-import com.mongodb.WriteResult;
-import com.mongodb.WriteConcern;
-import com.mongodb.CommandResult;
+import com.mongodb.*;
 import org.bson.types.ObjectId;
 
 // Java
@@ -42,7 +36,7 @@ final class LockHistoryDao extends BaseDao {
     /**
      * Insert an entry.
      */
-    static void insert( final Mongo pMongo,
+    static void insert( final MongoClient pMongo,
                         final String pLockName,
                         final DistributedLockSvcOptions pSvcOptions,
                         final DistributedLockOptions pLockOptions,
@@ -59,7 +53,7 @@ final class LockHistoryDao extends BaseDao {
     /**
      * Insert an entry.
      */
-    static void insert( final Mongo pMongo,
+    static void insert( final MongoClient pMongo,
                         final String pLockName,
                         final DistributedLockSvcOptions pSvcOptions,
                         final int pInactiveLockTimeout,
@@ -98,7 +92,7 @@ final class LockHistoryDao extends BaseDao {
     /**
      * Returns the history collection.
      */
-    private static DBCollection getDbCollection(final Mongo pMongo,
+    private static DBCollection getDbCollection(final MongoClient pMongo,
                                                 final DistributedLockSvcOptions pSvcOptions)
     { return getDb(pMongo, pSvcOptions).getCollection(pSvcOptions.getHistoryCollectionName()); }
 
@@ -106,7 +100,7 @@ final class LockHistoryDao extends BaseDao {
      * Ensure the proper indexes are on the collection. This must be called when
      * the service sarts.
      */
-    static void setup(final Mongo pMongo, final DistributedLockSvcOptions pSvcOptions) {
+    static void setup(final MongoClient pMongo, final DistributedLockSvcOptions pSvcOptions) {
 
     }
 }

@@ -1,15 +1,13 @@
 
 language: java
 
-script: 'ant test'
+script: 'mvn test'
 
 services:
     - mongodb
 
 jdk:
-    - oraclejdk7
-    - openjdk6
-    - openjdk7
+    - oraclejdk8
 
 env:
     - DB=mongodb

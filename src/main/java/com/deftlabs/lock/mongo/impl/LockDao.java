@@ -21,14 +21,7 @@ import com.deftlabs.lock.mongo.DistributedLockOptions;
 import com.deftlabs.lock.mongo.DistributedLockSvcOptions;
 
 // Mongo
-import com.mongodb.Mongo;
-import com.mongodb.DB;
-import com.mongodb.DBCursor;
-import com.mongodb.DBCollection;
-import com.mongodb.BasicDBObject;
-import com.mongodb.WriteResult;
-import com.mongodb.WriteConcern;
-import com.mongodb.CommandResult;
+import com.mongodb.*;
 import org.bson.types.ObjectId;
 
 // Java
@@ -43,7 +36,7 @@ final class LockDao extends BaseDao {
     /**
      * Increment the lock heartbeat time.
      */
-    static void heartbeat(  final Mongo pMongo,
+    static void heartbeat(  final MongoClient pMongo,
                             final String pLockName,
                             final ObjectId pLockId,
                             final DistributedLockOptions pLockOptions,
@@ -51,8 +44,6 @@ final class LockDao extends BaseDao {
 
     {
         try {
-            requestStart(pMongo, pSvcOptions);
-
             final long serverTime = getServerTime(pMongo, pSvcOptions);
 
             final BasicDBObject query = new BasicDBObject(LockDef.ID.field, pLockName);
@@ -61,23 +52,20 @@ final class LockDao extends BaseDao {
 
             final BasicDBObject toSet = new BasicDBObject(LockDef.LAST_HEARTBEAT.field, new Date(serverTime));
             toSet.put(LockDef.LOCK_TIMEOUT_TIME.field, new Date(serverTime + pLockOptions.getInactiveLockTimeout()));
+            getDbCollection(pMongo, pSvcOptions).update(query, new BasicDBObject(SET, toSet), false, false, WriteConcern.ACKNOWLEDGED);
 
-            getDbCollection(pMongo, pSvcOptions).update(query, new BasicDBObject(SET, toSet), false, false, WriteConcern.SAFE);
-
-        } finally { requestDone(pMongo, pSvcOptions); }
+        } finally { }
     }
 
     /**
      * Try and get the lock. If unable to do so, this returns false.
      */
-    static synchronized ObjectId lock(  final Mongo pMongo,
+    static synchronized ObjectId lock(  final MongoClient pMongo,
                                         final String pLockName,
                                         final DistributedLockSvcOptions pSvcOptions,
                                         final DistributedLockOptions pLockOptions)
     {
         try {
-            requestStart(pMongo, pSvcOptions);
-
             // Lookup the lock object.
             BasicDBObject lockDoc = findById(pMongo, pLockName, pSvcOptions);
 
@@ -112,10 +100,10 @@ final class LockDao extends BaseDao {
 
             return null;
 
-        } finally { requestDone(pMongo, pSvcOptions); }
+        } finally { }
     }
 
-    private static ObjectId tryLockingExisting( final Mongo pMongo,
+    private static ObjectId tryLockingExisting( final MongoClient pMongo,
                                                 final String pLockName,
                                                 final ObjectId pCurrentLockId,
                                                 final DistributedLockSvcOptions pSvcOptions,
@@ -173,7 +161,7 @@ final class LockDao extends BaseDao {
      * This will try and create the object. If successful, it will return the lock id.
      * Otherwise, it will return null (i.e., no lock).
      */
-    private static ObjectId tryInsertNew(   final Mongo pMongo,
+    private static ObjectId tryInsertNew(   final MongoClient pMongo,
                                             final String pLockName,
                                             final DistributedLockSvcOptions pSvcOptions,
                                             final DistributedLockOptions pLockOptions,
@@ -206,10 +194,11 @@ final class LockDao extends BaseDao {
         lockDoc.put(LockDef.INACTIVE_LOCK_TIMEOUT.field, pLockOptions.getInactiveLockTimeout());
 
         // Insert, if successful then get out of here.
-        final WriteResult result = getDbCollection(pMongo, pSvcOptions).insert(lockDoc, WriteConcern.NORMAL);
-        final CommandResult cmdResult = result.getLastError(WriteConcern.NORMAL);
-
-        if (!cmdResult.ok() || cmdResult.getException() != null || cmdResult.getErrorMessage() != null) return null;
+        try {
+            getDbCollection(pMongo, pSvcOptions).insert(lockDoc, WriteConcern.ACKNOWLEDGED);
+        } catch (MongoException e) {
+            return null;
+        }
 
         if (pSvcOptions.getEnableHistory())
         { LockHistoryDao.insert( pMongo, pLockName, pSvcOptions, pLockOptions, serverTime, LockState.LOCKED, lockId, false); }
@@ -220,7 +209,7 @@ final class LockDao extends BaseDao {
     /**
      * Returns true if the lock is locked.
      */
-    static boolean isLocked(final Mongo pMongo,
+    static boolean isLocked(final MongoClient pMongo,
                             final String pLockName,
                             final DistributedLockSvcOptions pSvcOptions)
     {
@@ -237,7 +226,7 @@ final class LockDao extends BaseDao {
     /**
      * Find by lock name/id.
      */
-    static BasicDBObject findById(  final Mongo pMongo,
+    static BasicDBObject findById(  final MongoClient pMongo,
                                     final String pLockName,
                                     final DistributedLockSvcOptions pSvcOptions)
     { return (BasicDBObject)getDbCollection(pMongo, pSvcOptions).findOne(new BasicDBObject(LockDef.ID.field, pLockName)); }
@@ -246,7 +235,7 @@ final class LockDao extends BaseDao {
      * Increment the waiting request count. This can be used by application developers
      * to diagnose problems with their applications.
      */
-    static void incrementLockAttemptCount(  final Mongo pMongo,
+    static void incrementLockAttemptCount(  final MongoClient pMongo,
                                             final String pLockName,
                                             final ObjectId pLockId,
                                             final DistributedLockSvcOptions pSvcOptions)
@@ -256,13 +245,13 @@ final class LockDao extends BaseDao {
         query.put(LockDef.LOCK_ID.field, pLockId);
 
         getDbCollection(pMongo, pSvcOptions)
-        .update(query, new BasicDBObject(INC, new BasicDBObject(LockDef.LOCK_ATTEMPT_COUNT.field, 1)), false, false, WriteConcern.SAFE);
+        .update(query, new BasicDBObject(INC, new BasicDBObject(LockDef.LOCK_ATTEMPT_COUNT.field, 1)), false, false, WriteConcern.ACKNOWLEDGED);
     }
 
     /**
      * Unlock the lock.
      */
-    static synchronized void unlock(final Mongo pMongo,
+    static synchronized void unlock(final MongoClient pMongo,
                                     final String pLockName,
                                     final DistributedLockSvcOptions pSvcOptions,
                                     final DistributedLockOptions pLockOptions,
@@ -299,7 +288,7 @@ final class LockDao extends BaseDao {
     /**
      * Check for expired/inactive/dead locks and unlock.
      */
-    static void expireInactiveLocks(final Mongo pMongo, final DistributedLockSvcOptions pSvcOptions) {
+    static void expireInactiveLocks(final MongoClient pMongo, final DistributedLockSvcOptions pSvcOptions) {
         // Adjust the time buffer to make sure we do not have small time issues.
         final long queryServerTime = getServerTime(pMongo, pSvcOptions);
 
@@ -356,7 +345,7 @@ final class LockDao extends BaseDao {
     /**
      * Returns the collection.
      */
-    private static DBCollection getDbCollection(final Mongo pMongo,
+    private static DBCollection getDbCollection(final MongoClient pMongo,
                                                 final DistributedLockSvcOptions pSvcOptions)
     { return getDb(pMongo, pSvcOptions).getCollection(pSvcOptions.getCollectionName()); }
 
@@ -364,35 +353,35 @@ final class LockDao extends BaseDao {
      * Ensure the proper indexes are on the collection. This must be called when
      * the service sarts.
      */
-    static void setup(final Mongo pMongo, final DistributedLockSvcOptions pSvcOptions) {
-        getDbCollection(pMongo, pSvcOptions).ensureIndex(new BasicDBObject(LockDef.LAST_HEARTBEAT.field, 1), "lastHeartbeatV1Idx", false);
-        getDbCollection(pMongo, pSvcOptions).ensureIndex(new BasicDBObject(LockDef.OWNER_APP_NAME.field, 1), "ownerAppNameV1Idx", false);
-        getDbCollection(pMongo, pSvcOptions).ensureIndex(new BasicDBObject(LockDef.STATE.field, 1), "stateV1Idx", false);
-        getDbCollection(pMongo, pSvcOptions).ensureIndex(new BasicDBObject(LockDef.LOCK_ID.field, 1), "lockIdV1Idx", false);
+    static void setup(final MongoClient pMongo, final DistributedLockSvcOptions pSvcOptions) {
+        getDbCollection(pMongo, pSvcOptions).createIndex(new BasicDBObject(LockDef.LAST_HEARTBEAT.field, 1), "lastHeartbeatV1Idx", false);
+        getDbCollection(pMongo, pSvcOptions).createIndex(new BasicDBObject(LockDef.OWNER_APP_NAME.field, 1), "ownerAppNameV1Idx", false);
+        getDbCollection(pMongo, pSvcOptions).createIndex(new BasicDBObject(LockDef.STATE.field, 1), "stateV1Idx", false);
+        getDbCollection(pMongo, pSvcOptions).createIndex(new BasicDBObject(LockDef.LOCK_ID.field, 1), "lockIdV1Idx", false);
 
         final BasicDBObject idStateIdx = new BasicDBObject(LockDef.ID.field, 1);
         idStateIdx.put(LockDef.STATE.field, 1);
-        getDbCollection(pMongo, pSvcOptions).ensureIndex(idStateIdx, "idStateV1Idx", false);
+        getDbCollection(pMongo, pSvcOptions).createIndex(idStateIdx, "idStateV1Idx", false);
 
         final BasicDBObject idLockIdIdx = new BasicDBObject(LockDef.ID.field, 1);
         idStateIdx.put(LockDef.LOCK_ID.field, 1);
-        getDbCollection(pMongo, pSvcOptions).ensureIndex(idLockIdIdx, "idLockIdV1Idx", false);
+        getDbCollection(pMongo, pSvcOptions).createIndex(idLockIdIdx, "idLockIdV1Idx", false);
 
         final BasicDBObject stateTimeoutIdx = new BasicDBObject(LockDef.STATE.field, 1);
         stateTimeoutIdx.put(LockDef.LOCK_TIMEOUT_TIME.field, 1);
-        getDbCollection(pMongo, pSvcOptions).ensureIndex(stateTimeoutIdx, "stateTimeoutV1Idx", false);
+        getDbCollection(pMongo, pSvcOptions).createIndex(stateTimeoutIdx, "stateTimeoutV1Idx", false);
 
         final BasicDBObject idStateLockIdIdx = new BasicDBObject(LockDef.ID.field, 1);
         idStateLockIdIdx.put(LockDef.LOCK_ID.field, 1);
         idStateLockIdIdx.put(LockDef.STATE.field, 1);
-        getDbCollection(pMongo, pSvcOptions).ensureIndex(idStateLockIdIdx, "idStateLockIdV1Idx", false);
+        getDbCollection(pMongo, pSvcOptions).createIndex(idStateLockIdIdx, "idStateLockIdV1Idx", false);
 
 
         final BasicDBObject idStateLockIdTimeoutIdx = new BasicDBObject(LockDef.ID.field, 1);
         idStateLockIdTimeoutIdx.put(LockDef.LOCK_ID.field, 1);
         idStateLockIdTimeoutIdx.put(LockDef.STATE.field, 1);
         idStateLockIdTimeoutIdx.put(LockDef.LOCK_TIMEOUT_TIME.field, 1);
-        getDbCollection(pMongo, pSvcOptions).ensureIndex(idStateLockIdTimeoutIdx, "idStateLockIdTimeoutV1Idx", false);
+        getDbCollection(pMongo, pSvcOptions).createIndex(idStateLockIdTimeoutIdx, "idStateLockIdTimeoutV1Idx", false);
 
     }
 }

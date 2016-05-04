@@ -43,7 +43,7 @@ enum LockDef {
 
     LOCK_ATTEMPT_COUNT("lockAttemptCount"); // The number of times another thread/process has requested this lock (since locked)
 
-    private LockDef(final String pField) { field = pField; }
+    LockDef(final String pField) { field = pField; }
     final String field;
 }
 

@@ -17,21 +17,20 @@
 package com.deftlabs.lock.mongo.impl;
 
 // Lib
-import com.deftlabs.lock.mongo.DistributedLock;
-import com.deftlabs.lock.mongo.DistributedLockSvc;
-import com.deftlabs.lock.mongo.DistributedLockOptions;
-import com.deftlabs.lock.mongo.DistributedLockSvcOptions;
-import com.deftlabs.lock.mongo.DistributedLockException;
 
-// Mongo
+import com.deftlabs.lock.mongo.*;
 import com.mongodb.Mongo;
+import com.mongodb.MongoClient;
+import com.mongodb.MongoClientURI;
 import com.mongodb.MongoURI;
 
-// Java
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.ReentrantLock;
+
+// Mongo
+// Java
 
 /**
  * The distributed lock server implementation.
@@ -100,7 +99,11 @@ public final class SvcImpl implements DistributedLockSvc {
 
         _lock.lock();
         try {
-            _mongo = new Mongo(new MongoURI(_options.getMongoUri()));
+            if(_options.getMongoClient() == null) {
+                _mongo = new MongoClient(new MongoClientURI(_options.getMongoUri()));
+            } else {
+                _mongo = _options.getMongoClient();
+            }
 
             // Init the db/collection.
             LockDao.setup(_mongo, _options);
@@ -142,7 +145,10 @@ public final class SvcImpl implements DistributedLockSvc {
             _lockUnlocked.shutdown();
 
             _locks.clear();
-            _mongo.close();
+
+            if(_options.getMongoClient() == null) {
+                _mongo.close();
+            }
         } catch (final Throwable t) { throw new DistributedLockException(t);
         } finally { _lock.unlock(); }
     }
@@ -150,7 +156,7 @@ public final class SvcImpl implements DistributedLockSvc {
     @Override
     public boolean isRunning() { return _running.get(); }
 
-    private Mongo _mongo;
+    private MongoClient _mongo;
 
     private final ReentrantLock _lock = new ReentrantLock(true);
     private final DistributedLockSvcOptions _options;
